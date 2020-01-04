@@ -27,9 +27,6 @@ def usage():
     print("-p --port")
     print("Port for the connections")
 
-    print("-c --command")
-    print("Command for execute after connect")
-
     print("-e --execute=file_to_run")
     print("Execute file upon connection")
 
@@ -45,33 +42,34 @@ def exec_command(command, exe):
         else:
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
             
-    except:
-        if sys.platform == 'win32':
-            out = ("'%s' command not found\n" % command).encode()
+    except subprocess.CalledProcessError:
+        out = ("'%s' command not found" % command).encode()+'\n'.encode()
 
     return out
 
 
 def client_handler(client_socket, execute):
     if len(execute):
-        i = 1
-        while True:
-            try:
-                if i == 1:
-                    client_socket.send("<Shell:#> ".encode())
-                    i += 1
-                    
+        if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe':
+            client_socket.send("Cmd line: ".encode())
+        else:
+            client_socket.send("<Shell:#> ".encode())
+        while 1:
+            try:                    
                 cmd_buffer = client_socket.recv(1024)
 
                 _str = cmd_buffer.decode()
                 if not len(_str):
-                    out = '\n'
+                    out = '\n'.encode()
                 else:
                     out = exec_command(_str, execute)
 
-                client_socket.send(out + "<Shell:#> ".encode())
+                if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe':
+                    client_socket.send(out + "Cmd line: ".encode())
+                else:
+                    client_socket.send(out + "<Shell:#> ".encode())
 
-            except:
+            except ConnectionRefusedError or ConnectionResetError:
                 print('Connection closed')
                 quit()
             
@@ -97,8 +95,12 @@ def client_send(target, port, exe):
 
         print('(UNKNOWN) [%s] %s : connection successfully' % (target, port))
 
-        client_thread = threading.Thread(target=client_handler, args=(client, exe))
-        client_thread.start()
+        try: 
+            client_thread = threading.Thread(target=client_handler, args=(client, exe))
+            client_thread.start()
+        except KeyboardInterrupt:
+            print('^C')
+            quit()
 
     except:
         print('(UNKNOWN) [%s] %s : connection failed' % (target, port))
@@ -119,8 +121,13 @@ def server_loop(port, up, target, exe):
 
         print('(UNKNOWN) [%s] %s : connection successfully' % (addr[0], addr[1]))
 
-        client_thread = threading.Thread(target=client_handler, args=(client_socket, exe))
-        client_thread.start()
+        try: 
+            client_thread = threading.Thread(target=client_handler, args=(client_socket, exe))
+            client_thread.start()
+            
+        except KeyboardInterrupt:
+            print('^C')
+            quit()
 
     except:
         pass
@@ -164,3 +171,4 @@ def main():
         server_loop(port, execute, target, execute)
 
 main()
+
