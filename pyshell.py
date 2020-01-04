@@ -37,7 +37,7 @@ def exec_command(command, exe):
     command = command.rstrip()
 
     try:
-        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash':
+        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
             out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
         else:
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
@@ -50,7 +50,7 @@ def exec_command(command, exe):
 
 def client_handler(client_socket, execute):
     if len(execute):
-        if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe':
+        if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe' and execute != '/bin/sh':
             client_socket.send("Cmd line: ".encode())
         else:
             client_socket.send("<Shell:#> ".encode())
@@ -64,7 +64,7 @@ def client_handler(client_socket, execute):
                 else:
                     out = exec_command(_str, execute)
 
-                if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe':
+                if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe' and execute != '/bin/sh':
                     client_socket.send(out + "Cmd line: ".encode())
                 else:
                     client_socket.send(out + "<Shell:#> ".encode())
