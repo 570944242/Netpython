@@ -84,7 +84,21 @@ def client_handler(client_socket, execute):
                     break
 
                 else:
-                    if _str[:2] == 'cd' and len(_str) != 2:
+                    if _str == 'cd..' and sys.platform == 'win32':
+                        oloc = ''
+                        aloc = os.getcwd().split('\\')
+                        i = 0
+                        while i < len(aloc)-1:
+                            oloc += aloc[i]+'/'
+                            i += 1
+                        os.chdir(oloc)
+                        out = b'\n'
+                    elif _str == 'cd/' and sys.platform == 'win32':
+                        oloc = os.getcwd().split('\\')[0]+'/'
+                        os.chdir(oloc)
+                        out = b'\n'
+                        
+                    elif _str[:2] == 'cd' and len(_str) != 2:
                         try:
                             os.chdir(_str[3:])
                             out = b'\n'
