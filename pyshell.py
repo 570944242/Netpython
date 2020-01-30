@@ -11,6 +11,9 @@ listen = False
 execute = ''
 target = ""
 port = 0
+zero = False
+ver = False
+
 if sys.platform == 'win32':
     clrf = b'\n'
 else:
@@ -19,22 +22,16 @@ else:
 
 def usage():
 
-    print("Usage: pyshell.py -t target_host -p port")
+    print("""Connect: pyshell.py -t hostname -p port[s] [-options]
+Listen: pyshell.py -l -p port [-options]""")
 
-    print("-h --help")
-    print("Display this help message")
-
-    print("-l --listen")
-    print("Listen on [host]:[port] for incoming connections")
-
-    print("-p --port")
-    print("Port for the connections")
-
-    print("-e --execute=file_to_run")
-    print("Execute file upon connection")
-
-    print("-t --target=host")
-    print("Host for the ibound connection")
+    print("-h                  Display this help message")
+    print("-l                  Listen on [host]:[port] for incoming connections")
+    print("-p port[s]          Port for the connections")
+    print("-e file             Execute file upon connection")
+    print("-t add              Host for the ibound connection")
+    print("-z                  Zero I/O mode (used in port scaning)")
+    print("-v                  Verbose mode")
 
     sys.exit(0)
 
@@ -79,7 +76,6 @@ def client_handler(client_socket, execute):
                     out = b'\n'
 
                 elif _str[:4] == 'exit':
-                    client_socket.send(b'^exit^3760d35305a9d5a7e738adaf37b2d129$exit$')
                     client_socket.close()
                     break
 
@@ -98,10 +94,10 @@ def client_handler(client_socket, execute):
                         os.chdir(oloc)
                         out = b'\n'
                         
-                    elif _str[:2] == 'cd' and len(_str) != 2:
+                    elif _str[:2] == 'cd' and len(_str.replace(' ', '')) != 2:
                         try:
                             os.chdir(_str[3:])
-                            out = b'\n'
+                            out = clrf
                         except:
                             if sys.platform == 'win32':
                                 out = b'The system cannot find the path specified.\n\n'
@@ -115,7 +111,7 @@ def client_handler(client_socket, execute):
                             oloc += aloc[i]+'/'
                             i += 1
                         os.chdir(oloc)
-                        out = b'\n'
+                        out = b''
                     else:
                         out = exec_command(_str, execute)
 
@@ -139,14 +135,14 @@ def client_handler(client_socket, execute):
         while 1:
             try:
                 data = client_socket.recv(4096).decode()
-                if data == '^exit^3760d35305a9d5a7e738adaf37b2d129$exit$':
-                    print('exit')
-                    client_socket.close()
-                    break
 
                 buffer = input(data)
                 if not len(buffer):
                     buffer = '\n'
+                elif buffer[:4] == 'exit':
+                    client_socket.send(b'exit')
+                    client_socket.close()
+                    break
                 client_socket.send(buffer.encode())
 
             except:
@@ -163,21 +159,30 @@ def client_send(target, port, exe):
 
         print('(UNKNOWN) [%s] %s : connection successfully' % (target, port))
 
-        try:
-            client_thread = threading.Thread(target=client_handler, args=(client, exe))
-            client_thread.start()
-        except KeyboardInterrupt:
-            print('^C')
-            quit()
+        if zero == True:
+            client.close()
+            
+        else:
+            try:
+                client_thread = threading.Thread(target=client_handler, args=(client, exe))
+                client_thread.start()
+            except KeyboardInterrupt:
+                print('^C')
+                quit()
 
     except:
-        print('(UNKNOWN) [%s] %s : connection failed' % (target, port))
+        if ver == True:
+            print('(UNKNOWN) [%s] %s : connection failed' % (target, port))
+        else:
+            pass
 
-def server_loop(port, up, target, exe):
-    if not len(target):
-        target = "0.0.0.0"
+def server_loop(port, exe):
+    target = "0.0.0.0"
 
-    print('Listening on %s ...' % port)
+    if ver == True:
+        print('Listening on %s ...' % port)
+    else:
+        pass
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((target, port))
@@ -205,37 +210,53 @@ def main():
     global listen
     global port
     global execute
-    global upload_destination
     global target
+    global zero
+    global ver
 
     if not len(sys.argv[1:]):
         scan()
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:cu", [
-                                   "help", "listen", "execute", "target", "port"])
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zv", ["help", "listen", "execute",
+                                                        "target", "port", "zero", "verbose"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
 
     for o, a in opts:
-        if o in ("-h", "--help"):
+        if o in ("-h"):
             usage()
-        elif o in ("-l", "--listen"):
+        elif o in ("-l"):
             listen = True
-        elif o in ("-e", "--execute"):
+        elif o in ("-e"):
             execute = a
-        elif o in ("-t", "--target"):
+        elif o in ("-t"):
             target = a
-        elif o in ("-p", "--port"):
-            port = int(a)
+        elif o in ("-p"):
+            port = a
+        elif o in ("-z"):
+            zero = True
+        elif o in ("-v"):
+            ver = True
         else:
             pass
 
-    if not listen and len(target) and port > 0:
-        client_send(target, port, execute)
+    if not listen and len(target) and '-' in port:
+        fport = int(port.split('-')[0])
+        lport = int(port.split('-')[1])
+        for p in range(fport, lport+1):
+            _thread = threading.Thread(target=client_send, args=(target, p, execute))
+            _thread.start()
+            
+    elif not listen and len(target) and port > 0:
+        client_send(target, int(port), execute)
 
-    if listen:
-        server_loop(port, execute, target, execute)
+    elif listen:
+        server_loop(int(port), execute)
+
+    else:
+        usage()
+ 
 
 main()
