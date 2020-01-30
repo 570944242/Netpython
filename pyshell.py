@@ -11,6 +11,10 @@ listen = False
 execute = ''
 target = ""
 port = 0
+if sys.platform == 'win32':
+    clrf = b'\n'
+else:
+    clrf = b''
 
 
 def usage():
@@ -40,12 +44,16 @@ def exec_command(command, exe):
 
     try:
         if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash':
-            out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
+            out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+clrf
         else:
-            out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
+            out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+clrf
 
     except subprocess.CalledProcessError:
-        out = b"'%s' command not found \n\n" % command.encode()
+        if sys.platform == 'win32':
+            out = b"'%s' is not recognized as an internal or external command,\noperable program or batch file.\n\n" % command.encode()
+        else:
+            out = b"-bash: %s: command not found\n" % command.encode()
+            
     return out
 
 
@@ -81,7 +89,10 @@ def client_handler(client_socket, execute):
                             os.chdir(_str[3:])
                             out = b'\n'
                         except:
-                            out = b"'%s' cannot find such file or directory\n\n"
+                            if sys.platform == 'win32':
+                                out = b'The system cannot find the path specified.\n\n'
+                            else:
+                                out = b"-bash: cd: %s: No such file or directory\n" % _str[3:].encode()
                     elif _str[:2] == 'cd' and sys.platform != 'win32':
                         oloc = ''
                         aloc = os.getcwd().split('/')
