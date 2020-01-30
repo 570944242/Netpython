@@ -1,3 +1,8 @@
+The best python backdoor shell in the world. 
+
+We can absolutely sure this is the best PYTHON SHELL in the 
+world until now. You try it now.
+
 Python netcat for reverse or bind shell. Py-shell is a custom 
 network tool to create backdoor shell (pentesting) and some 
 other network purpose like connection testing or remote command 
@@ -25,4 +30,4 @@ Example usage:
 
 
 
-Created by hacker Minh(hacking at HackerOne and Bugcrowd)
+Created by toidihack(hacking at HackerOne and Bugcrowd)
