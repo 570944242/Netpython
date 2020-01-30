@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+#!/usr/bin/python3
+
 import sys
 import socket
 import getopt
@@ -40,16 +42,28 @@ def exec_command(command, exe):
     command = command.rstrip()
 
     try:
-        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash':
+        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
             out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+clrf
         else:
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+clrf
 
     except subprocess.CalledProcessError:
-        if sys.platform == 'win32':
+        if 'powershell' in exe:
+            out = b"""%s : The term '%s' is not recognized as the name of a cmdlet, function, script file, or operable program. Check
+the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ %s
++ ~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (%s:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+    
+""" % (command.encode(), command.encode(), command.encode(), command.encode())
+        elif 'cmd' in exe:
             out = b"'%s' is not recognized as an internal or external command,\noperable program or batch file.\n\n" % command.encode()
-        else:
+        elif exe == '/bin/bash' or exe == '/bin/sh':
             out = b"-bash: %s: command not found\n" % command.encode()
+        else:
+            out = b'\n'
             
     return out
 
@@ -57,15 +71,23 @@ def exec_command(command, exe):
 def client_handler(client_socket, execute):
     if len(execute):
         if sys.platform == 'win32':
-            ver = subprocess.check_output('ver', stderr=subprocess.STDOUT, shell=True) + b'(c) Microsoft Corporation. All rights reserved.\n\n'
-            client_socket.send(ver + os.getcwd().encode() + b'>')
-        else:
+            if 'powershell' in execute:
+                version = b'\nWindows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.\n\n'
+                client_socket.send(version + b'PS ' + os.getcwd().encode() + b'>')
+            elif 'cmd' in execute:
+                version = subprocess.check_output('ver', stderr=subprocess.STDOUT, shell=True) + b'(c) Microsoft Corporation. All rights reserved.\n\n'
+                client_socket.send(version + os.getcwd().encode() + b'>')
+            else:
+                client_socket.send(b'\n')
+        elif execute == '/bin/bash' or execute == '/bin/sh':
             loc = os.getcwd().split('/')
             if loc[1] == 'root':
                 usr = 'root'
             else:
                 usr = loc[2]
-                client_socket.send(('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
+                client_socket.send(('\n%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
+        else:
+            client_socket.send(b'\n')
 
         while 1:
             try:
@@ -75,56 +97,72 @@ def client_handler(client_socket, execute):
                 if not len(_str):
                     out = b'\n'
 
-                elif _str[:4] == 'exit':
-                    client_socket.close()
-                    break
+                if 'cmd' in execute or 'powershell' in execute or execute == '/bin/bash' or execute == '/bin/sh':
+                    if _str[:4] == 'exit':
+                        client_socket.close()
+                        break
+
+                    else:
+                        if _str.replace(' ', '') == 'cd..' and sys.platform == 'win32':
+                            oloc = ''
+                            aloc = os.getcwd().split('\\')
+                            i = 0
+                            while i < len(aloc)-1:
+                                oloc += aloc[i]+'/'
+                                i += 1
+                            os.chdir(oloc)
+                            out = b'\n'
+                        elif _str.replace(' ', '') == 'cd/' and sys.platform == 'win32':
+                            oloc = os.getcwd().split('\\')[0]+'/'
+                            os.chdir(oloc)
+                            out = b'\n'
+                        elif _str.replace(' ', '')[:2] == 'cd' and len(_str.replace(' ', '')) != 2:
+                            try:
+                                os.chdir(_str.replace('cd', '').replace(' ', ''))
+                                out = clrf
+                            except:
+                                if 'cmd' in execute:
+                                    out = b'The system cannot find the path specified.\n\n'
+                                elif 'powershell' in execute:
+                                    out = b"""cd : Cannot find path '%s' because it does not exist.
+At line:1 char:1
++ cd %s
++ ~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (%s:String) [Set-Location], ItemNotFoundException
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
+
+""" % (os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode(), _str.replace(' ', '').replace('cd', '').encode(), os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode())
+                                else:
+                                    out = b"-bash: cd: %s: No such file or directory\n" % _str.replace(' ', '').replace('cd', '').encode()
+                        elif _str.replace(' ', '') == 'cd' and sys.platform != 'win32':
+                            oloc = ''
+                            aloc = os.getcwd().split('/')
+                            i = 0
+                            while i < 3:
+                                oloc += aloc[i]+'/'
+                                i += 1
+                            os.chdir(oloc)
+                            out = b''
+                        else:
+                            out = exec_command(_str, execute)
+    
+                    if sys.platform == 'win32':
+                        if 'powershell' in execute:
+                            client_socket.sendall(out + b'PS ' + os.getcwd().encode() + b'>')
+                        else:
+                            client_socket.sendall(out + os.getcwd().encode() + b'>')
+
+                    else:
+                        loc = os.getcwd().split('/')
+                        if loc[1] == 'root':
+                            usr = 'root'
+                        else:
+                            usr = loc[2]
+                        client_socket.sendall(out + ('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
 
                 else:
-                    if _str == 'cd..' and sys.platform == 'win32':
-                        oloc = ''
-                        aloc = os.getcwd().split('\\')
-                        i = 0
-                        while i < len(aloc)-1:
-                            oloc += aloc[i]+'/'
-                            i += 1
-                        os.chdir(oloc)
-                        out = b'\n'
-                    elif _str == 'cd/' and sys.platform == 'win32':
-                        oloc = os.getcwd().split('\\')[0]+'/'
-                        os.chdir(oloc)
-                        out = b'\n'
-                        
-                    elif _str[:2] == 'cd' and len(_str.replace(' ', '')) != 2:
-                        try:
-                            os.chdir(_str[3:])
-                            out = clrf
-                        except:
-                            if sys.platform == 'win32':
-                                out = b'The system cannot find the path specified.\n\n'
-                            else:
-                                out = b"-bash: cd: %s: No such file or directory\n" % _str[3:].encode()
-                    elif _str[:2] == 'cd' and sys.platform != 'win32':
-                        oloc = ''
-                        aloc = os.getcwd().split('/')
-                        i = 0
-                        while i < 3:
-                            oloc += aloc[i]+'/'
-                            i += 1
-                        os.chdir(oloc)
-                        out = b''
-                    else:
-                        out = exec_command(_str, execute)
-
-                if sys.platform == 'win32':
-                    client_socket.sendall(out + os.getcwd().encode() + b'>')
-
-                else:
-                    loc = os.getcwd().split('/')
-                    if loc[1] == 'root':
-                        usr = 'root'
-                    else:
-                        usr = loc[2]
-                    client_socket.sendall(out + ('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
+                    out = exec_command(_str, execute)
+                    client_socket.send(out + b'\n')
 
             except:
                 client_socket.close()
@@ -178,11 +216,7 @@ def client_send(target, port, exe):
 
 def server_loop(port, exe):
     target = "0.0.0.0"
-
-    if ver == True:
-        print('Listening on %s ...' % port)
-    else:
-        pass
+    print('Listening on %s ...' % port)
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((target, port))
@@ -227,7 +261,7 @@ def main():
     for o, a in opts:
         if o in ("-h"):
             usage()
-        elif o in ("-l"):
+        elif o in ("-l", "l"):
             listen = True
         elif o in ("-e"):
             execute = a
@@ -235,9 +269,9 @@ def main():
             target = a
         elif o in ("-p"):
             port = a
-        elif o in ("-z"):
+        elif o in ("-z", "z"):
             zero = True
-        elif o in ("-v"):
+        elif o in ("-v", "v"):
             ver = True
         else:
             pass
@@ -249,13 +283,14 @@ def main():
             _thread = threading.Thread(target=client_send, args=(target, p, execute))
             _thread.start()
             
-    elif not listen and len(target) and port > 0:
+    elif not listen and len(target) and port.isdigit() and 65536 > int(port) > 0:
         client_send(target, int(port), execute)
 
     elif listen:
         server_loop(int(port), execute)
 
     else:
+        print('Invalid usage')
         usage()
  
 
