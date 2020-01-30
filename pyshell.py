@@ -6,7 +6,6 @@ import getopt
 import threading
 import subprocess
 import os
-import struct
 
 listen = False
 execute = ''
@@ -46,21 +45,22 @@ def exec_command(command, exe):
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+'\n'.encode()
 
     except subprocess.CalledProcessError:
-        out = b"'%s' command not found \n" % command.encode()
+        out = b"'%s' command not found \n\n" % command.encode()
     return out
 
 
 def client_handler(client_socket, execute):
     if len(execute):
         if sys.platform == 'win32':
-            client_socket.send(os.getcwd().encode() + b'>')
+            ver = subprocess.check_output('ver', stderr=subprocess.STDOUT, shell=True) + b'(c) Microsoft Corporation. All rights reserved.\n\n'
+            client_socket.send(ver + os.getcwd().encode() + b'>')
         else:
             loc = os.getcwd().split('/')
             if loc[1] == 'root':
                 usr = 'root'
             else:
                 usr = loc[2]
-                client_socket.send(('%s@%s:%s#' % (usr, socket.gethostname(), os.getcwd())).encode())
+                client_socket.send(('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
 
         while 1:
             try:
@@ -69,10 +69,19 @@ def client_handler(client_socket, execute):
                 _str = cmd_buffer.decode()
                 if not len(_str):
                     out = b'\n'
+
+                elif _str[:4] == 'exit':
+                    client_socket.send(b'^exit^3760d35305a9d5a7e738adaf37b2d129$exit$')
+                    client_socket.close()
+                    break
+
                 else:
                     if _str[:2] == 'cd' and len(_str) != 2:
-                        os.chdir(_str[3:])
-                        out = b'\n'
+                        try:
+                            os.chdir(_str[3:])
+                            out = b'\n'
+                        except:
+                            out = b"'%s' cannot find such file or directory\n\n"
                     elif _str[:2] == 'cd' and sys.platform != 'win32':
                         oloc = ''
                         aloc = os.getcwd().split('/')
@@ -86,32 +95,40 @@ def client_handler(client_socket, execute):
                         out = exec_command(_str, execute)
 
                 if sys.platform == 'win32':
-                    client_socket.send(out + os.getcwd().encode() + b'>')
+                    client_socket.sendall(out + os.getcwd().encode() + b'>')
+
                 else:
                     loc = os.getcwd().split('/')
                     if loc[1] == 'root':
                         usr = 'root'
                     else:
                         usr = loc[2]
-                    client_socket.send(out + ('%s@%s:%s#' % (usr, socket.gethostname(), os.getcwd())).encode())
+                    client_socket.sendall(out + ('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
 
-            except ConnectionRefusedError or ConnectionResetError:
-                print('Connection closed')
-                quit()
+            except:
+                client_socket.close()
+                break
 
 
     else:
-        while True:
+        while 1:
             try:
-                data = client_socket.recv(1024)
+                data = client_socket.recv(4096).decode()
+                if data == '^exit^3760d35305a9d5a7e738adaf37b2d129$exit$':
+                    print('exit')
+                    client_socket.close()
+                    break
 
-                buffer = input(data.decode())
+                buffer = input(data)
                 if not len(buffer):
                     buffer = '\n'
                 client_socket.send(buffer.encode())
 
             except:
-                pass
+                client_socket.close()
+                break
+
+    quit()
 
 
 def client_send(target, port, exe):
