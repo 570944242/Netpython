@@ -6,13 +6,16 @@ import getopt
 import threading
 import subprocess
 import os
+from random import randrange
 
 listen = False
 execute = ''
 target = ""
-port = 0
+port = None
 zero = False
 ver = False
+typ = socket.SOCK_STREAM
+rand = False
 
 if sys.platform == 'win32':
     clrf = b'\n'
@@ -20,18 +23,32 @@ else:
     clrf = b''
 
 
+icon = r'''      ____
+             ^ ^   _ \
+  ___      \' '/  \ _ \       _             ___
+ |</>|---(((\_/)))-\ _ \-----|_|-----------|</>|
+ |___|             / _ /                   |___|
+                  / _ /                    
+                 / _ /
+                / _ /
+'''
+
 def usage():
 
     print("""Connect: pyshell.py -t hostname -p port[s] [-options]
-Listen: pyshell.py -l -p port [-options]""")
+Listen: pyshell.py -l -p port [-options]
+Scan: pyshell.py -t hostname -p min_port-max_port -z [-options]
+""")
 
-    print("-h                  Display this help message")
-    print("-l                  Listen on [host]:[port] for incoming connections")
-    print("-p port[s]          Port for the connections")
-    print("-e file             Execute file upon connection")
-    print("-t add              Host for the ibound connection")
-    print("-z                  Zero I/O mode (used in port scaning)")
-    print("-v                  Verbose mode")
+    print("-h                     Display this help message")
+    print("-l                     Listen on [host]:[port] for incoming connections")
+    print("-p port[s]             Port for the connections")
+    print("-e file                Execute file upon connection")
+    print("-t addr                Host for the ibound connection")
+    print("-z                     Zero I/O mode (used in port scaning)")
+    print("-v                     Verbose mode")
+    print("-u                     UDP protocol mode")
+    print("-r                     Random local or remote ports")
 
     sys.exit(0)
 
@@ -180,6 +197,8 @@ At line:1 char:1
                 data = client_socket.recv(4096).decode()
 
                 buffer = input(data)
+                if port in (80, 443):
+                    buffer += '\n\n' + input()
                 if not len(buffer):
                     buffer = '\n'
                 elif buffer[:4] == 'exit':
@@ -197,7 +216,7 @@ At line:1 char:1
 
 def client_send(target, port, exe):
     try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client = socket.socket(socket.AF_INET, typ)
         client.connect((target, port))
         print('(UNKNOWN) [%s] %s : Port open' % (target, port))
 
@@ -218,11 +237,15 @@ def client_send(target, port, exe):
 
 def server_loop(port, exe):
     target = "0.0.0.0"
+    server = socket.socket(socket.AF_INET, typ)
+    try:
+        server.bind((target, port))
+    except:
+        print("Can't bind at [0.0.0.0] %s" % port)
+        quit()
+
     if ver == True:
         print('Listening on %s ...' % port)
-
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((target, port))
 
     server.listen(5)
 
@@ -250,13 +273,12 @@ def main():
     global target
     global zero
     global ver
-
-    if not len(sys.argv[1:]):
-        scan()
+    global rand
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zv", ["help", "listen", "execute",
-                                                        "target", "port", "zero", "verbose"])
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvur", ["help", "listen", "execute",
+                                                        "target", "port", "zero", "verbose",
+                                                        "udp", "random"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -276,8 +298,30 @@ def main():
             zero = True
         elif o in ("-v", "v"):
             ver = True
+        elif o in ("-u", "u"):
+            typ = socket.SOCK_DGRAM
+        elif o in ("-r", "r"):
+            rand = True
         else:
             pass
+
+    if rand:
+        while 1:
+            port = randrange(1, 65535)
+            try:
+                s = socket.socket(socket.AF_INET, typ)
+                s.bind(('0.0.0.0', port))
+                break
+            except:
+                pass
+
+    if port == None:
+        print("Invalid usage: No port[s] (use `-r` to randomize ports)")
+        quit()
+
+    if not port.isdigit() or not 65536 > int(port) > 0:
+        print('Invalid usage: Invalid port %s' % port)
+        quit()
 
     if not listen and len(target) and '-' in port:
         fport = int(port.split('-')[0])
@@ -293,8 +337,7 @@ def main():
         server_loop(int(port), execute)
 
     else:
-        print('Invalid usage')
-        usage()
+        print('Invalid usage: No destination')
 
 
 main()
