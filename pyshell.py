@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-#!/usr/bin/python3
-
 import sys
 import socket
 import getopt
@@ -56,15 +54,15 @@ At line:1 char:1
 + ~~~~~~~
     + CategoryInfo          : ObjectNotFound: (%s:String) [], CommandNotFoundException
     + FullyQualifiedErrorId : CommandNotFoundException
-    
+
 """ % (command.encode(), command.encode(), command.encode(), command.encode())
         elif 'cmd' in exe:
             out = b"'%s' is not recognized as an internal or external command,\noperable program or batch file.\n\n" % command.encode()
         elif exe == '/bin/bash' or exe == '/bin/sh':
             out = b"-bash: %s: command not found\n" % command.encode()
         else:
-            out = b'\n'
-            
+            out = b''
+
     return out
 
 
@@ -80,12 +78,12 @@ def client_handler(client_socket, execute):
             else:
                 client_socket.send(b'\n')
         elif execute == '/bin/bash' or execute == '/bin/sh':
-            loc = os.getcwd().split('/')
-            if loc[1] == 'root':
-                usr = 'root'
+            usr = subprocess.check_output('whoami', stderr=subprocess.STDOUT, shell=True).decode().replace('\n', '')
+            if usr == 'root':
+                end = '#'
             else:
-                usr = loc[2]
-                client_socket.send(('\n%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
+                end = '$'
+            client_socket.send(('\n%s@%s:%s%s ' % (usr, socket.gethostname(), os.getcwd(), end)).encode())
         else:
             client_socket.send(b'\n')
 
@@ -98,24 +96,39 @@ def client_handler(client_socket, execute):
                     out = b'\n'
 
                 if 'cmd' in execute or 'powershell' in execute or execute == '/bin/bash' or execute == '/bin/sh':
-                    if _str[:4] == 'exit':
+                    if _str.replace(' ', '') == 'exit':
                         client_socket.close()
                         break
 
                     else:
-                        if _str.replace(' ', '') == 'cd..' and sys.platform == 'win32':
+                        if _str.replace(' ', '') == 'cd..':
                             oloc = ''
-                            aloc = os.getcwd().split('\\')
+                            if sys.platform == 'win32':
+                                aloc = os.getcwd().split('\\')
+                            else:
+                                aloc = os.getcwd().split('/')
                             i = 0
                             while i < len(aloc)-1:
                                 oloc += aloc[i]+'/'
                                 i += 1
                             os.chdir(oloc)
-                            out = b'\n'
-                        elif _str.replace(' ', '') == 'cd/' and sys.platform == 'win32':
-                            oloc = os.getcwd().split('\\')[0]+'/'
+                            out = clrf
+
+                        elif _str.replace(' ', '') == 'cd' and sys.platform != 'win32':
+                            oloc = ''
+                            aloc = os.getcwd().split('/')
+                            i = 0
+                            while i < 3:
+                                oloc += aloc[i]+'/'
+                                i += 1
                             os.chdir(oloc)
-                            out = b'\n'
+                            out = b''
+
+                        elif _str.replace(' ', '') == 'cd~' and sys.platform != 'win32':
+                            usr = subprocess.check_output('whoami', stderr=subprocess.STDOUT, shell=True).decode().replace('\n', '')
+                            os.chdir('/home/' + usr)
+                            out = b''
+
                         elif _str.replace(' ', '')[:2] == 'cd' and len(_str.replace(' ', '')) != 2:
                             try:
                                 os.chdir(_str.replace('cd', '').replace(' ', ''))
@@ -134,18 +147,10 @@ At line:1 char:1
 """ % (os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode(), _str.replace(' ', '').replace('cd', '').encode(), os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode())
                                 else:
                                     out = b"-bash: cd: %s: No such file or directory\n" % _str.replace(' ', '').replace('cd', '').encode()
-                        elif _str.replace(' ', '') == 'cd' and sys.platform != 'win32':
-                            oloc = ''
-                            aloc = os.getcwd().split('/')
-                            i = 0
-                            while i < 3:
-                                oloc += aloc[i]+'/'
-                                i += 1
-                            os.chdir(oloc)
-                            out = b''
+
                         else:
                             out = exec_command(_str, execute)
-    
+
                     if sys.platform == 'win32':
                         if 'powershell' in execute:
                             client_socket.sendall(out + b'PS ' + os.getcwd().encode() + b'>')
@@ -153,12 +158,12 @@ At line:1 char:1
                             client_socket.sendall(out + os.getcwd().encode() + b'>')
 
                     else:
-                        loc = os.getcwd().split('/')
-                        if loc[1] == 'root':
-                            usr = 'root'
+                        usr = subprocess.check_output('whoami', stderr=subprocess.STDOUT, shell=True).decode().replace('\n', '')
+                        if usr == 'root':
+                            end = '#'
                         else:
-                            usr = loc[2]
-                        client_socket.sendall(out + ('%s@%s:%s# ' % (usr, socket.gethostname(), os.getcwd())).encode())
+                            end = '$'
+                        client_socket.sendall(out + ('%s@%s:%s%s ' % (usr, socket.gethostname(), os.getcwd(), end)).encode())
 
                 else:
                     out = exec_command(_str, execute)
@@ -194,12 +199,11 @@ def client_send(target, port, exe):
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect((target, port))
-
-        print('(UNKNOWN) [%s] %s : connection successfully' % (target, port))
+        print('(UNKNOWN) [%s] %s : Port open' % (target, port))
 
         if zero == True:
             client.close()
-            
+
         else:
             try:
                 client_thread = threading.Thread(target=client_handler, args=(client, exe))
@@ -210,13 +214,12 @@ def client_send(target, port, exe):
 
     except:
         if ver == True:
-            print('(UNKNOWN) [%s] %s : connection failed' % (target, port))
-        else:
-            pass
+            print('(UNKNOWN) [%s] %s : Connection failed' % (target, port))
 
 def server_loop(port, exe):
     target = "0.0.0.0"
-    print('Listening on %s ...' % port)
+    if ver == True:
+        print('Listening on %s ...' % port)
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((target, port))
@@ -226,7 +229,7 @@ def server_loop(port, exe):
     try:
         client_socket, addr = server.accept()
 
-        print('(UNKNOWN) [%s] %s : connection successfully' % (addr[0], addr[1]))
+        print('(UNKNOWN) [%s] %s : Connection successfully' % (addr[0], addr[1]))
 
         try:
             client_thread = threading.Thread(target=client_handler, args=(client_socket, exe))
@@ -261,13 +264,13 @@ def main():
     for o, a in opts:
         if o in ("-h"):
             usage()
-        elif o in ("-l", "l"):
+        elif o in ("-l"):
             listen = True
         elif o in ("-e"):
             execute = a
         elif o in ("-t"):
             target = a
-        elif o in ("-p"):
+        elif o in ("-p", "p"):
             port = a
         elif o in ("-z", "z"):
             zero = True
@@ -282,7 +285,7 @@ def main():
         for p in range(fport, lport+1):
             _thread = threading.Thread(target=client_send, args=(target, p, execute))
             _thread.start()
-            
+
     elif not listen and len(target) and port.isdigit() and 65536 > int(port) > 0:
         client_send(target, int(port), execute)
 
@@ -292,6 +295,6 @@ def main():
     else:
         print('Invalid usage')
         usage()
- 
+
 
 main()
