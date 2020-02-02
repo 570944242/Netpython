@@ -86,7 +86,14 @@ def exec_command(command, exe):
 
     try:
         if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
-            out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+e
+            if command == 'help':
+                if sys.platform == 'win32':
+                    f = 'help.wd'
+                else:
+                    f = 'help.ln'
+                out = open(f, 'r').read()
+            else:
+                out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+e
         else:
             out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+e
 
