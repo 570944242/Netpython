@@ -26,7 +26,8 @@ this tool will never been detected by any anti-virus programs.
 
 Netpython has a very simple usage, "np.py -lvp port" or "np.py -t host -p port" can 
 creates a TCP connection (also support the UDP connection) to the given port and the 
-given host. More options are shown in the netpython help message "np.py -h".
+given host. More options are shown in the netpython help message "np.py -h". If you are
+using python2, use "np2.py". I am working on "np2" to it can I and O at the same time.
 
 
 Some the netpython features:
