@@ -16,15 +16,22 @@ zero = False
 ver = False
 typ = socket.SOCK_STREAM
 rand = False
+timeout = None
+pwd = None
+clrf = False
+name = None
+alive = False
+mver = False
 
 if sys.platform == 'win32':
-    clrf = b'\n'
+    e = b'\n'
 else:
-    clrf = b''
+    e = b''
 
 
-icon = r'''      ____
-             ^ ^   _ \
+banner = r'''
+                 ____
+            ^  ^   _ \
   ___      \' '/  \ _ \       _             ___
  |</>|---(((\_/)))-\ _ \-----|_|-----------|</>|
  |___|             / _ /                   |___|
@@ -35,22 +42,43 @@ icon = r'''      ____
 
 def usage():
 
-    print("""Connect: pyshell.py -t hostname -p port[s] [-options]
-Listen: pyshell.py -l -p port [-options]
-Scan: pyshell.py -t hostname -p min_port-max_port -z [-options]
-""")
+    print("""[Netpython github.com/hackerSMinh/Netpython]
+Connect: np.py -t hostname -p port[s] [-options]
+Listen: np.py -l -p port [-options]
+Scan: np.py -t hostname -p min_port-max_port -z [-options]
 
-    print("-h                     Display this help message")
-    print("-l                     Listen on [host]:[port] for incoming connections")
-    print("-p port[s]             Port for the connections")
-    print("-e file                Execute file upon connection")
-    print("-t addr                Host for the ibound connection")
-    print("-z                     Zero I/O mode (used in port scaning)")
-    print("-v                     Verbose mode")
-    print("-u                     UDP protocol mode")
-    print("-r                     Random local or remote ports")
+Options:""")
+
+    print("       -h                     This help")
+    print("       -l                     Listen for inbound connects")
+    print("       -p port[s]             Port for the connection")
+    print("       -e file                Execute program upon connection")
+    print("       -c                     Use `-e` as '/bin/bash' in unix and 'cmd' in windows")
+    print("       -t addr                Host for the ibound connection")
+    print("       -z                     Zero I/O mode (used in port scaning)")
+    print("       -v                     Verbose mode")
+    print("       -V                     More verbose")
+    print("       -u                     UDP protocol mode")
+    print("       -r                     Random local or remote ports")
+    print("       -w secs                Set timeout for the connection")
+    print("       -d pass                Require password to connects")
+    print("       -C                     CLRF as line ending (use it when chating)")
+    print("       -n name                Send your name as first line (for recognize when chating)")
+    print("       -k                     Keep socket alive")
+    print("       -b                     Display the Netpython banner")
+    print("Port numbers can be individual or ranges: min-max")
 
     sys.exit(0)
+
+
+def o(s):
+    while 1:
+        try:
+            data = s.recv(4096).decode()
+            print(data, end='')
+        except:
+            s.close()
+            break
 
 
 def exec_command(command, exe):
@@ -58,9 +86,9 @@ def exec_command(command, exe):
 
     try:
         if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
-            out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+clrf
+            out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)+e
         else:
-            out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+clrf
+            out = subprocess.check_output([exe, command], stderr=subprocess.STDOUT, shell=True)+e
 
     except subprocess.CalledProcessError:
         if 'powershell' in exe:
@@ -83,7 +111,14 @@ At line:1 char:1
     return out
 
 
-def client_handler(client_socket, execute):
+def client_handler(client_socket, execute, pwd):
+    if pwd != None:
+        while 1:
+            client_socket.send(b'Enter the password: ')
+            pw = client_socket.recv(1024).decode().replace('\n', '')
+            if pw == pwd:
+                break
+            
     if len(execute):
         if sys.platform == 'win32':
             if 'powershell' in execute:
@@ -113,9 +148,12 @@ def client_handler(client_socket, execute):
                     out = b'\n'
 
                 if 'cmd' in execute or 'powershell' in execute or execute == '/bin/bash' or execute == '/bin/sh':
-                    if _str.replace(' ', '') == 'exit':
+                    if _str.replace(' ', '') == 'exit':  
                         client_socket.close()
                         break
+
+                    if not len(_str.replace(' ', '')):
+                        out = b''
 
                     else:
                         if _str.replace(' ', '') == 'cd..':
@@ -129,7 +167,7 @@ def client_handler(client_socket, execute):
                                 oloc += aloc[i]+'/'
                                 i += 1
                             os.chdir(oloc)
-                            out = clrf
+                            out = e
 
                         elif _str.replace(' ', '') == 'cd' and sys.platform != 'win32':
                             oloc = ''
@@ -149,7 +187,7 @@ def client_handler(client_socket, execute):
                         elif _str.replace(' ', '')[:2] == 'cd' and len(_str.replace(' ', '')) != 2:
                             try:
                                 os.chdir(_str.replace('cd', '').replace(' ', ''))
-                                out = clrf
+                                out = e
                             except:
                                 if 'cmd' in execute:
                                     out = b'The system cannot find the path specified.\n\n'
@@ -192,19 +230,19 @@ At line:1 char:1
 
 
     else:
+        if name != None:
+            client_socket.send(b'[%s]\n' % name)
+        _thread = threading.Thread(target=o, args=[client_socket])
+        _thread.start()
         while 1:
             try:
-                data = client_socket.recv(4096).decode()
-
-                buffer = input(data)
+                buffer = input('')
                 if port in (80, 443):
-                    buffer += '\n\n' + input()
+                    buffer += '\n' + input()
                 if not len(buffer):
                     buffer = '\n'
-                elif buffer[:4] == 'exit':
-                    client_socket.send(b'exit')
-                    client_socket.close()
-                    break
+                if clrf == True:
+                    buffer += '\n'
                 client_socket.send(buffer.encode())
 
             except:
@@ -217,22 +255,27 @@ At line:1 char:1
 def client_send(target, port, exe):
     try:
         client = socket.socket(socket.AF_INET, typ)
+        if timeout != None:
+            client.settimeout(int(timeout))
+            
         client.connect((target, port))
-        print('(UNKNOWN) [%s] %s : Port open' % (target, port))
-
+        if ver == True:
+            print('(UNKNOWN) [%s] %s : Open' % (target, port))
+        if alive == True:
+            client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         if zero == True:
             client.close()
 
         else:
             try:
-                client_thread = threading.Thread(target=client_handler, args=(client, exe))
+                client_thread = threading.Thread(target=client_handler, args=(client, exe, pwd))
                 client_thread.start()
             except KeyboardInterrupt:
                 print('^C')
                 quit()
 
     except:
-        if ver == True:
+        if mver == True:
             print('(UNKNOWN) [%s] %s : Connection failed' % (target, port))
 
 def server_loop(port, exe):
@@ -248,14 +291,18 @@ def server_loop(port, exe):
         print('Listening on %s ...' % port)
 
     server.listen(5)
+    if timeout != None:
+            client.settimeout(int(timeout))
 
     try:
         client_socket, addr = server.accept()
+        if alive == True:
+            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         print('(UNKNOWN) [%s] %s : Connection successfully' % (addr[0], addr[1]))
 
         try:
-            client_thread = threading.Thread(target=client_handler, args=(client_socket, exe))
+            client_thread = threading.Thread(target=client_handler, args=(client_socket, exe, pwd))
             client_thread.start()
 
         except KeyboardInterrupt:
@@ -274,11 +321,18 @@ def main():
     global zero
     global ver
     global rand
+    global timeout
+    global pwd
+    global clrf
+    global name
+    global alive
+    global mver
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvur", ["help", "listen", "execute",
-                                                        "target", "port", "zero", "verbose",
-                                                        "udp", "random"])
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVb", ["help", "listen", "execute",
+                                                        "target", "port", "zero", "verbose", "udp",
+                                                        "random", "timeout", "passwd", "terminal",
+                                                        "clrf", "name", "keepalive", "Mverbose", "banner"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -288,7 +342,7 @@ def main():
             usage()
         elif o in ("-l"):
             listen = True
-        elif o in ("-e"):
+        elif o in ("-e", "e"):
             execute = a
         elif o in ("-t"):
             target = a
@@ -302,6 +356,26 @@ def main():
             typ = socket.SOCK_DGRAM
         elif o in ("-r", "r"):
             rand = True
+        elif o in ("-w", "w"):
+            timeout = a
+        elif o in ("-d", "d"):
+            pwd = a
+        elif o in ("-c", "c"):
+            if sys.platform == 'win32':
+                execute = 'cmd'
+            else:
+                execute = '/bin/sh'
+        elif o in ("-C", "C"):
+            clrf = True
+        elif o in ("-n", "n"):
+            name = a
+        elif o in ("-k", "k"):
+            alive = True
+        elif o in ("-V", "V"):
+            mver = True
+        elif o in ("-b", "b"):
+            print(banner)
+            quit()
         else:
             pass
 
@@ -321,6 +395,10 @@ def main():
 
     if not port.isdigit() or not 65536 > int(port) > 0:
         print('Invalid usage: Invalid port %s' % port)
+        quit()
+
+    if timeout != None and not timeout.isdigit():
+        print('Invalid usage: Invalid timeout %s' % port)
         quit()
 
     if not listen and len(target) and '-' in port:
