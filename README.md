@@ -1,7 +1,8 @@
-## Netpy - The best python3 networking tool in the world.
+## Netpy - The best python networking tool in the world.
 
-We can absolutely sure this is the best PYTHON3 TCP/UDP 
-NETWORK CONNECTION TOOL in the world. You can try it now.
+We can absolutely sure this is the best PYTHON TCP/UDP 
+NETWORK CONNECTION TOOL in the world until now. You can try 
+it.
 
 Netpy is a 'python netcat' with all the networking features. 
 Netpy is a custom tcp/udp network tool used for reading or 
@@ -10,6 +11,9 @@ scanning, transferring files, and port listening, ... and it
 also can be used as a backdoor shell (pentesting). It's a good 
 investigation tool for administrators, programmers, and pen
 testers.
+
+Netpython is a netcat alternative solution for minimize cyber 
+attacks and avoid Anti-virus trigger false positives.
 
 Usage:
 
