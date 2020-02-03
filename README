@@ -10,7 +10,7 @@ Netpython - A python computer networking utility tool for reading from and writi
 
 A feature-rich network debugging and investigation tool written 
 in python. We have made this as a netcat-like tool. This netpython 
-was created by @toidihack, check thefile readme.txt for further 
+was created by @toidihack, check the file readme.txt for further 
 details.
 
 Netpython is a 'python netcat' with all the networking features. 
