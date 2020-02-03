@@ -57,10 +57,10 @@ banner = r'''
 
 def usage():
 
-    print("""[Netpython github.com/hackerSMinh/Netpython]
-Connect: np.py -t hostname -p port[s] [-options]
-Listen: np.py -l -p port [-options]
-Scan: np.py -t hostname -p min_port-max_port -z [-options]
+    print("""[V1.10 github.com/hackerSMinh/Netpython]
+Connect:  np.py -t hostname -p port[s] [-options]
+Listen:   np.py -l -p port [-options]
+Scan:     np.py -t hostname -p min_port-max_port -z [-options]
 Options:""")
 
     print("       -h                     This help")
