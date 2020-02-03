@@ -46,10 +46,10 @@ The origin of Netpython
 =======================
  ---Bulding---
 When author known about Netcat, he was so exciting with it, with a lot of network features. 
-But unfortunately, Windows doesn't have Netcat. He was so sad but at that time, he just finished
-the python course to be a good python developer so he made this. Although after a time, he known
-that there is a netcat for Windows, he still continue with his tool because the Anti-virus has
-blocked his netcat. And now here it is!
+But unfortunately, Windows doesn't have Netcat. And after a time, he known that there is a 
+netcat for Windows, but his brother Anti-virus has blocked his netcat. He was so sad and just 
+always asked why netcat has so much barriers. And luckily, at that time, he just finished
+the python course to be a good python developer, so he made this. And now here it is!
 
  ---Time---
 Finished in 2020
