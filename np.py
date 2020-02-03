@@ -22,7 +22,7 @@ clrf = False
 name = None
 alive = False
 mver = False
-chat = False
+order = False
 scan = False
 allp = {'25' : 'smtp',
         '80' : 'http',
@@ -59,9 +59,9 @@ banner = r'''
 def usage():
 
     print("""[V1.10 github.com/hackerSMinh/Netpython]
-Connect:  np.py -t hostname -p port[s] [-options]
-Listen:   np.py -l -p port [-options]
-Scan:     np.py -t hostname -p min_port-max_port -z [-options]
+Connect: np.py -t hostname -p port[s] [-options]
+Listen:  np.py -l -p port [-options]
+Scan:    np.py -t hostname -p min_port-max_port -z [-options]
 Options:""")
 
     print("       -h                     This help")
@@ -77,7 +77,7 @@ Options:""")
     print("       -r                     Random local or remote ports")
     print("       -w secs                Set timeout for the connection")
     print("       -P pass                Require password to connects")
-    print("       -s                     Server-chatting mode")
+    print("       -s                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
     print("       -C                     CLRF as line ending (use it when chating)")
     print("       -n name                Send your name as the first line (for recognize when chating)")
     print("       -k                     Keep socket alive")
@@ -259,12 +259,12 @@ At line:1 char:1
     else:
         if name != None:
             client_socket.send(b'[%s]\n' % name)
-        if chat == True:
+        if order == False:
             _thread = threading.Thread(target=o, args=[client_socket])
             _thread.start()
         while 1:
             try:
-                if chat == False:
+                if order == True:
                     data = client_socket.recv(4096).decode()
                     print(data, end='')
                 buffer = input('')
@@ -339,7 +339,7 @@ def client_send(target, port, exe):
                     print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
         else:
             if 'hlfailed' in msg:
-                print('[%s]: Host lookup failed: Unknown host' % target)
+                print('[%s]: Host lookup failed: unknown host' % target)
                 quit()
             try:
                 print('(UNKNOWN) [%s] %s (%s): %s' % (target, port, allp[str(port)], msg))
@@ -396,7 +396,7 @@ def main():
     global name
     global alive
     global mver
-    global chat
+    global order
     global scan
 
     try:
@@ -404,7 +404,7 @@ def main():
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
-                                                        "chat"])
+                                                        "order"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -446,7 +446,7 @@ def main():
         elif o in ("-V", "V"):
             mver = True
         elif o in ("-s", "s"):
-            chat = True
+            order = True
         elif o in ("-b", "b"):
             print(banner)
             quit()
