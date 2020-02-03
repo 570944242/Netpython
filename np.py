@@ -77,7 +77,7 @@ Options:""")
     print("       -r                     Random local or remote ports")
     print("       -w secs                Set timeout for the connection")
     print("       -P pass                Require password to connects")
-    print("       -s                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
+    print("       -O                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
     print("       -C                     CLRF as line ending (use it when chating)")
     print("       -n name                Send your name as the first line (for recognize when chating)")
     print("       -k                     Keep socket alive")
@@ -400,7 +400,7 @@ def main():
     global scan
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVbs", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVbO", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
@@ -445,7 +445,7 @@ def main():
             alive = True
         elif o in ("-V", "V"):
             mver = True
-        elif o in ("-s", "s"):
+        elif o in ("-O", "O"):
             order = True
         elif o in ("-b", "b"):
             print(banner)
