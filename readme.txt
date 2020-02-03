@@ -27,7 +27,7 @@ this tool will never been detected by any anti-virus programs.
 Netpython has a very simple usage, "np.py -lvp port" or "np.py -t host -p port" can 
 creates a TCP connection (also support the UDP connection) to the given port and the 
 given host. More options are shown in the netpython help message "np.py -h". If you are
-using python2, use "np2.py". I am working on "np2" to it can I and O at the same time.
+using python2, use "np2.py". I am working on "np2" for "Chat" mode.
 
 
 Some the netpython features:
@@ -52,19 +52,19 @@ that there is a netcat for Windows, he still continue with his tool because the 
 blocked his netcat. And now here it is!
 
  ---Time---
-Finished in 2019
+Finished in 2020
 
  ---Code---
 Using the python socket, subprocess modules. (And some other important python modules: os, sys, 
 ...). Author has tried to don't use any "required download" modules. Anyway, the special in this 
-tool is something that I call "Fake-console". That when you create a bind or a reverse shell, it 
+tool is something that I call "Virtual-console". That when you create a bind or a reverse shell, it 
 looks like you have create a shell, but the true it just check the output of your command and do
 some "decorate". Although the author has investigated a long time about netcat in python and has 
 found the way to "create a shell" in literal meaning both on Windows and Linux with EXACTLY like 
 netcat, he will do it in the future with a bigger project (I don't know but it may be 'Dranect'). 
 
  ---License---
-Although the author still haven't registered any license yet but please don't copy this in any
+Although the author still haven't registered any license yet but please don't copy this by any
 way. 
 
  ---Name---
