@@ -1,8 +1,14 @@
-## Netpy - The best python networking tool in the world.
+|\   |                         |
+| \  |  ___  _|_  ___      _|_ |__   __  . __
+|  \ | |___   |  |__/ \  /  |  |  \ |  | |/  |
+|   \| |___   |  |     \/   |  |  | |__| |   |
+                 |     / 
+                      /
+Netpython - A python computer networking utility tool for reading from and writing to network connections (TCP/UDP).
 
-We can absolutely sure this is the best PYTHON TCP/UDP 
-NETWORK CONNECTION TOOL in the world until now. You can try 
-it.
+
+A feature-rich network debugging and investigation tool written 
+in python. We have made this as a netcat-like tool.
 
 Netpy is a 'python netcat' with all the networking features. 
 Netpy is a custom tcp/udp network tool used for reading or 
@@ -31,7 +37,7 @@ Example usage:
 
 *python3 np.py -t 127.0.0.1 -p 4444*
 
-*python3 np.py -lp 5000 -e powershell -u*
+*python3 np.py -lusCp 5000*
 
 *python3 np.py -t 127.0.0.1 -p 1000-8000 -z*
 
