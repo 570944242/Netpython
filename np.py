@@ -22,6 +22,22 @@ clrf = False
 name = None
 alive = False
 mver = False
+chat = False
+scan = False
+allp = {'25' : 'smtp',
+        '80' : 'http',
+        '443': 'https',
+        '20' : 'ftp',
+        '21' : 'ftp',
+        '23' : 'telnet',
+        '143': 'imap',
+        '3389': 'rdp',
+        '22' : 'ssh',
+        '53' : 'dns',
+        '67' : 'dhcp',
+        '68' : 'dhcp',
+        '110': 'pop3'
+        }
 
 if sys.platform == 'win32':
     e = b'\n'
@@ -46,7 +62,6 @@ def usage():
 Connect: np.py -t hostname -p port[s] [-options]
 Listen: np.py -l -p port [-options]
 Scan: np.py -t hostname -p min_port-max_port -z [-options]
-
 Options:""")
 
     print("       -h                     This help")
@@ -61,12 +76,13 @@ Options:""")
     print("       -u                     UDP protocol mode")
     print("       -r                     Random local or remote ports")
     print("       -w secs                Set timeout for the connection")
-    print("       -d pass                Require password to connects")
+    print("       -P pass                Require password to connects")
+    print("       -s                     Server-chatting mode")
     print("       -C                     CLRF as line ending (use it when chating)")
-    print("       -n name                Send your name as first line (for recognize when chating)")
+    print("       -n name                Send your name as the first line (for recognize when chating)")
     print("       -k                     Keep socket alive")
     print("       -b                     Display the Netpython banner")
-    print("Port numbers can be individual or ranges: min-max")
+    print("Port numbers can be individual or ranges: min-max; netpython commands are also support HTTP requests")
 
     sys.exit(0)
 
@@ -106,7 +122,6 @@ At line:1 char:1
 + ~~~~~~~
     + CategoryInfo          : ObjectNotFound: (%s:String) [], CommandNotFoundException
     + FullyQualifiedErrorId : CommandNotFoundException
-
 """ % (command.encode(), command.encode(), command.encode(), command.encode())
         elif 'cmd' in exe:
             out = b"'%s' is not recognized as an internal or external command,\noperable program or batch file.\n\n" % command.encode()
@@ -142,7 +157,10 @@ def client_handler(client_socket, execute, pwd):
                 end = '#'
             else:
                 end = '$'
-            client_socket.send(('\n%s@%s:%s%s ' % (usr, socket.gethostname(), os.getcwd(), end)).encode())
+            path = os.getcwd()
+            if '/home/%s' % usr in path and usr != 'root':
+                path = path.replace('/home/%s' % usr, '~')
+            client_socket.send(('\n%s@%s:%s%s ' % (usr, socket.gethostname(), path, end)).encode())
         else:
             client_socket.send(b'\n')
 
@@ -205,7 +223,6 @@ At line:1 char:1
 + ~~~~~~~
     + CategoryInfo          : ObjectNotFound: (%s:String) [Set-Location], ItemNotFoundException
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
-
 """ % (os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode(), _str.replace(' ', '').replace('cd', '').encode(), os.getcwd().encode()+b'\\'+_str.replace(' ', '').replace('cd', '').encode())
                                 else:
                                     out = b"-bash: cd: %s: No such file or directory\n" % _str.replace(' ', '').replace('cd', '').encode()
@@ -225,7 +242,10 @@ At line:1 char:1
                             end = '#'
                         else:
                             end = '$'
-                        client_socket.sendall(out + ('%s@%s:%s%s ' % (usr, socket.gethostname(), os.getcwd(), end)).encode())
+                        path = os.getcwd()
+                        if '/home/%s' % usr in path and usr != 'root':
+                            path = path.replace('/home/%s' % usr, '~')
+                        client_socket.sendall(out + ('%s@%s:%s%s ' % (usr, socket.gethostname(), path, end)).encode())
 
                 else:
                     out = exec_command(_str, execute)
@@ -239,15 +259,34 @@ At line:1 char:1
     else:
         if name != None:
             client_socket.send(b'[%s]\n' % name)
-        _thread = threading.Thread(target=o, args=[client_socket])
-        _thread.start()
+        if chat == True:
+            _thread = threading.Thread(target=o, args=[client_socket])
+            _thread.start()
         while 1:
             try:
+                if chat == False:
+                    data = client_socket.recv(4096).decode()
+                    print(data, end='')
                 buffer = input('')
-                if port in (80, 443):
-                    buffer += '\n' + input()
                 if not len(buffer):
                     buffer = '\n'
+                elif int(port) in (80, 443):
+                    i = 0
+                    while 1:
+                        data = input()
+                        buffer += '\n' + data
+                        if data == '':
+                            i += 1
+                        if i == 1:
+                            break
+                    while 1:
+                        data = input()
+                        buffer += '\n' + data
+                        if data == '':
+                            i += 1
+                        if i == 2:
+                            break
+                        
                 if clrf == True:
                     buffer += '\n'
                 client_socket.send(buffer.encode())
@@ -264,10 +303,13 @@ def client_send(target, port, exe):
         client = socket.socket(socket.AF_INET, typ)
         if timeout != None:
             client.settimeout(int(timeout))
-            
         client.connect((target, port))
+            
         if ver == True:
-            print('(UNKNOWN) [%s] %s : Open' % (target, port))
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Open' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Open' % (target, port))
         if alive == True:
             client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         if zero == True:
@@ -281,9 +323,29 @@ def client_send(target, port, exe):
                 print('^C')
                 quit()
 
-    except:
-        if mver == True:
-            print('(UNKNOWN) [%s] %s : Connection failed' % (target, port))
+    except socket.error as msg:
+        msg = str(msg).replace('getaddrinfo failed', 'hlfailed').replace('[', '').replace(']', ':')
+        if '10061' in msg:
+            if mver == True or scan == False:
+                try:
+                    print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
+                except:
+                    print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
+        elif '104' in msg:
+            if mver == True or scan == False:
+                try:
+                    print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
+                except:
+                    print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
+        else:
+            if 'hlfailed' in msg:
+                print('[%s]: Host lookup failed: Unknown host' % target)
+                quit()
+            try:
+                print('(UNKNOWN) [%s] %s (%s): %s' % (target, port, allp[str(port)], msg))
+            except:
+                print('(UNKNOWN) [%s] %s (?): %s' % (target, port, msg))
+            quit()
 
 def server_loop(port, exe):
     target = "0.0.0.0"
@@ -299,21 +361,21 @@ def server_loop(port, exe):
 
     server.listen(5)
     if timeout != None:
-            client.settimeout(int(timeout))
+        client.settimeout(int(timeout))
 
     try:
         client_socket, addr = server.accept()
         if alive == True:
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
-        print('(UNKNOWN) [%s] %s : Connection successfully' % (addr[0], addr[1]))
+        print('(UNKNOWN) [%s] %s : Connection succeeded' % (addr[0], addr[1]))
 
         try:
             client_thread = threading.Thread(target=client_handler, args=(client_socket, exe, pwd))
             client_thread.start()
 
         except KeyboardInterrupt:
-            print('^C')
+            print('^C\n')
             quit()
 
     except:
@@ -334,12 +396,15 @@ def main():
     global name
     global alive
     global mver
+    global chat
+    global scan
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVb", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVbs", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
-                                                        "clrf", "name", "keepalive", "Mverbose", "banner"])
+                                                        "clrf", "name", "keepalive", "Mverbose", "banner"
+                                                        "chat"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -365,7 +430,7 @@ def main():
             rand = True
         elif o in ("-w", "w"):
             timeout = a
-        elif o in ("-d", "d"):
+        elif o in ("-P", "P"):
             pwd = a
         elif o in ("-c", "c"):
             if sys.platform == 'win32':
@@ -380,6 +445,8 @@ def main():
             alive = True
         elif o in ("-V", "V"):
             mver = True
+        elif o in ("-s", "s"):
+            chat = True
         elif o in ("-b", "b"):
             print(banner)
             quit()
@@ -400,7 +467,7 @@ def main():
         print("Invalid usage: No port[s] (use `-r` to randomize ports)")
         quit()
 
-    if not port.isdigit() or not 65536 > int(port) > 0:
+    if (not port.isdigit() or not 65536 > int(port) > 0) and not '-' in port:
         print('Invalid usage: Invalid port %s' % port)
         quit()
 
@@ -409,6 +476,8 @@ def main():
         quit()
 
     if not listen and len(target) and '-' in port:
+        scan = True
+        ver = True
         fport = int(port.split('-')[0])
         lport = int(port.split('-')[1])
         for p in range(fport, lport+1):
