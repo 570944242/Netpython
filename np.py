@@ -317,7 +317,7 @@ def client_send(target, port, exe):
                 socket.inet_aton(target)
                 ip = target
             except:
-                print('%s not an IP adrress' % target)
+                print('%s is not an IP adrress' % target)
                 quit()
         if timeout != None:
             client.settimeout(int(timeout))
@@ -345,6 +345,7 @@ def client_send(target, port, exe):
                 quit()
 
     except socket.error as msg:
+        msg = str(msg)
         if 'getaddrinfo failed' in msg:
             print('[%s]: Host lookup failed: unknown host' % target)
             quit()
@@ -427,7 +428,7 @@ def main():
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
-                                                        "order"])
+                                                        "order", "ip"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
