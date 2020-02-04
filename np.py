@@ -520,7 +520,7 @@ def main():
     if timeout != None and not timeout.isdigit():
         print('Invalid timeout %s seconds' % timeout)
         quit()
-    if not delay.isdigit() or int(delay) < 1:
+    if not str(delay).isdigit() or int(delay) < 0:
         print('Invalid delay time %s seconds' % delay)
         quit()
 
