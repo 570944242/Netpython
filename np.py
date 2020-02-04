@@ -490,15 +490,15 @@ def main():
                 pass
 
     if port == None:
-        print("Invalid usage: No port[s] (use `-r` to randomize ports)")
+        print("No port[s] (use `-r` to randomize ports)")
         quit()
 
     if (not port.isdigit() or not 65536 > int(port) > 0) and not '-' in port:
-        print('Invalid usage: Invalid port %s' % port)
+        print('Invalid port %s' % port)
         quit()
 
     if timeout != None and not timeout.isdigit():
-        print('Invalid usage: Invalid timeout %s' % port)
+        print('Invalid timeout %s seconds' % port)
         quit()
 
     if not listen and len(target) and '-' in port:
@@ -517,7 +517,7 @@ def main():
         server_loop(int(port), execute)
 
     else:
-        print('Invalid usage: No destination')
+        print('No destination')
 
 
 main()
