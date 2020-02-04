@@ -53,6 +53,7 @@ Example usage:
 ====
 Some basic features:
 
+  * Full forward and reverse DNS lookup
   * Port scanning
   * Transferring files
   * Port listening
