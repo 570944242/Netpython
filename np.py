@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys
+import time
 import socket
 import getopt
 import threading
@@ -25,6 +26,7 @@ mver = False
 order = False
 scan = False
 dns = True
+delay = 0
 allp = {'25' : 'smtp',
         '80' : 'http',
         '443': 'https',
@@ -67,6 +69,7 @@ Options:""")
 
     print("       -h                     This help")
     print("       -l                     Listen for inbound connects")
+    print("       -L                     Re-listen after disconnect")
     print("       -p port[s]             Port for the connection")
     print("       -e file                Execute program upon connection")
     print("       -c                     Use `-e` as '/bin/bash' in unix and 'cmd' in windows")
@@ -74,25 +77,32 @@ Options:""")
     print("       -n                     No DNS lookup, only IP addresses")
     print("       -u                     UDP protocol mode")
     print("       -r                     Random local or remote ports")
+    print("       -d secs                Delay interval for lines sent")
     print("       -k                     Keep socket alive")
-    print("       -P pass                Require password to connects")
     print("       -v                     Verbose mode")
     print("       -V                     More verbose")
     print("       -w secs                Set timeout for the socket")
-    print("       -C                     CLRF as line ending (used in server-chating)")
+    print("       -C                     CLRF as line ending ")
     print("       -z                     Zero I/O mode (used in port scaning)")
-    print("       -O                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
-    print("       -N name                Send your name as the first line (for recognize when chating)")
+    print("       -O                     Ordinarily I/O mode (used in backdoor shell to avoid some I/O errors)")
+    print("       -P pass                Require password to connects")
+    print("       -N name                Your name as the first line (for recognize when chating)")
     print("       -b                     Display the Netpython banner")
     print("Port numbers can be individual or ranges: min-max; netpython commands are also support HTTP requests")
 
     sys.exit(0)
 
 
+
 def o(s):
     while 1:
         try:
-            data = s.recv(4096).decode()
+            data = ''
+            while 1:
+                packet = s.recv(1024)
+                data += packet.decode()
+                if len(packet) < 1024:
+                    break
             print(data, end='')
         except:
             s.close()
@@ -170,7 +180,7 @@ def client_handler(client_socket, execute, pwd):
             try:
                 cmd_buffer = client_socket.recv(1024)
 
-                _str = cmd_buffer.decode()
+                _str = cmd_buffer.decode().replace('\n', '')
                 if not len(_str):
                     out = b'\n'
 
@@ -264,12 +274,17 @@ At line:1 char:1
         if order == False:
             _thread = threading.Thread(target=o, args=[client_socket])
             _thread.start()
+                
         while 1:
             try:
                 if order == True:
-                    data = client_socket.recv(4096).decode()
+                    data = ''
+                    while 1:
+                        packet = client_socket.recv(1024).decode()
+                        if len(packet.e) < 1024:
+                            break
                     print(data, end='')
-                buffer = input('')
+                buffer = input('') + '\n'
                 if not len(buffer):
                     buffer = '\n'
                 elif int(port) in (80, 443):
@@ -291,12 +306,13 @@ At line:1 char:1
                         
                 if clrf == True:
                     buffer += '\n'
+                if delay != 0:
+                    time.sleep(int(delay))
                 client_socket.send(buffer.encode())
 
             except:
                 client_socket.close()
                 break
-
     quit()
 
 
@@ -309,9 +325,9 @@ def client_send(target, port, exe):
             ip = lookup[2][0]
             if mver == True:
                 if target == hostname:
-                    print('DNS (fwd/rev) match: %s == %s' % (target, hostname))
+                    print('DNS (forward/reverse) match: %s == %s' % (target, hostname))
                 else:
-                    print('DNS (fwd/rev) mismatch: %s != %s' % (target, hostname))
+                    print('DNS (forward/reverse) mismatch: %s != %s' % (target, hostname))
         else:
             try:
                 socket.inet_aton(target)
@@ -379,7 +395,7 @@ def server_loop(port, exe):
         print("Can't bind at [0.0.0.0] %s" % port)
         quit()
 
-    if ver == True:
+    if ver == True or mver == True:
         print('Listening on %s ...' % port)
 
     server.listen(5)
@@ -391,7 +407,8 @@ def server_loop(port, exe):
         if alive == True:
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
-        print('(UNKNOWN) [%s] %s : Connection succeeded' % (addr[0], addr[1]))
+        if ver == True or mver == True:
+            print('(UNKNOWN) [%s] %s : Connection succeeded' % (addr[0], addr[1]))
 
         try:
             client_thread = threading.Thread(target=client_handler, args=(client_socket, exe, pwd))
@@ -422,13 +439,14 @@ def main():
     global order
     global scan
     global dns
+    global delay
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCN:kVbOn", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hlLe:t:p:zvurw:d:cCN:kVbOnd:", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
-                                                        "order", "ip"])
+                                                        "order", "ip", "delay"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -438,7 +456,9 @@ def main():
             usage()
         elif o in ("-l"):
             listen = True
-        elif o in ("-e", "e"):
+        elif o in ("-L"):
+            listen = [True, True] 
+        elif o in ("-e"):
             execute = a
         elif o in ("-t"):
             target = a
@@ -473,6 +493,8 @@ def main():
             mver = True
         elif o in ("-O", "O"):
             order = True
+        elif o in ("-d", "d"):
+            delay = a
         elif o in ("-b", "b"):
             print(banner)
             quit()
@@ -492,13 +514,14 @@ def main():
     if port == None:
         print("No port[s] (use `-r` to randomize ports)")
         quit()
-
     if (not port.isdigit() or not 65536 > int(port) > 0) and not '-' in port:
         print('Invalid port %s' % port)
         quit()
-
     if timeout != None and not timeout.isdigit():
-        print('Invalid timeout %s seconds' % port)
+        print('Invalid timeout %s seconds' % timeout)
+        quit()
+    if not delay.isdigit() or int(delay) < 1:
+        print('Invalid delay time %s seconds' % delay)
         quit()
 
     if not listen and len(target) and '-' in port:
@@ -513,8 +536,12 @@ def main():
     elif not listen and len(target) and port.isdigit() and 65536 > int(port) > 0:
         client_send(target, int(port), execute)
 
-    elif listen:
+    elif listen == True:
         server_loop(int(port), execute)
+
+    elif listen == [True, True]:
+        while 1:
+            server_loop(int(port), execute)
 
     else:
         print('No destination')
