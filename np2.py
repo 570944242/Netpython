@@ -23,6 +23,7 @@ name = None
 alive = False
 mver = False
 scan = False
+dns = True
 allp = {'25' : 'smtp',
         '80' : 'http',
         '443': 'https',
@@ -58,9 +59,9 @@ banner = r'''
 def usage():
 
     print("""[V1.10 github.com/hackerSMinh/Netpython]
-Connect:  np.py -t hostname -p port[s] [-options]
-Listen:   np.py -l -p port [-options]
-Scan:     np.py -t hostname -p min_port-max_port -z [-options]
+Connect: np.py -t hostname -p port[s] [-options]
+Listen:  np.py -l -p port [-options]
+Scan:    np.py -t hostname -p min_port-max_port -z [-options]
 Options:""")
 
     print("       -h                     This help")
@@ -69,22 +70,21 @@ Options:""")
     print("       -e file                Execute program upon connection")
     print("       -c                     Use `-e` as '/bin/bash' in unix and 'cmd' in windows")
     print("       -t addr                Host for the ibound connection")
-    print("       -z                     Zero I/O mode (used in port scaning)")
-    print("       -v                     Verbose mode")
-    print("       -V                     More verbose")
+    print("       -n                     No DNS lookup, only IP addresses")
     print("       -u                     UDP protocol mode")
     print("       -r                     Random local or remote ports")
-    print("       -w secs                Set timeout for the connection")
-    print("       -P pass                Require password to connects")
-    print("       -s                     Server-chatting mode")
-    print("       -C                     CLRF as line ending (use it when chating)")
-    print("       -n name                Send your name as the first line (for recognize when chating)")
     print("       -k                     Keep socket alive")
+    print("       -P pass                Require password to connects")
+    print("       -v                     Verbose mode")
+    print("       -V                     More verbose")
+    print("       -w secs                Set timeout for the socket")
+    print("       -C                     CLRF as line ending (used in server-chating)")
+    print("       -z                     Zero I/O mode (used in port scaning)")
+    print("       -N name                Send your name as the first line (for recognize when chating)")
     print("       -b                     Display the Netpython banner")
-    print("Port numbers can be individual or ranges: min-max; netpython commands are also support HTTP requests")
+    print("Port numbers can be individual or ranges: min-max; netpython(2) commands are not support HTTP requests")
 
     sys.exit(0)
-
 
 def exec_command(command, exe):
     command = command.rstrip()
@@ -251,27 +251,9 @@ At line:1 char:1
         while 1:
             try:
                 data = client_socket.recv(4096).decode()
-                print(data, end='')
-                buffer = input('')
+                buffer = input(data)
                 if not len(buffer):
                     buffer = '\n'
-                elif int(port) in (80, 443):
-                    i = 0
-                    while 1:
-                        data = input()
-                        buffer += '\n' + data
-                        if data == '':
-                            i += 1
-                        if i == 1:
-                            break
-                    while 1:
-                        data = input()
-                        buffer += '\n' + data
-                        if data == '':
-                            i += 1
-                        if i == 2:
-                            break
-                        
                 if clrf == True:
                     buffer += '\n'
                 client_socket.send(buffer.encode())
@@ -286,15 +268,34 @@ At line:1 char:1
 def client_send(target, port, exe):
     try:
         client = socket.socket(socket.AF_INET, typ)
+        if dns:
+            lookup = socket.gethostbyaddr(target)
+            hostname = lookup[0]
+            ip = lookup[2][0]
+            if mver == True:
+                if target == hostname:
+                    print('DNS (fwd/rev) match: %s == %s' % (target, hostname))
+                else:
+                    print('DNS (fwd/rev) mismatch: %s != %s' % (target, hostname))
+        else:
+            try:
+                socket.inet_aton(target)
+                ip = target
+            except:
+                print('%s is not an IP adrress' % target)
+                quit()
         if timeout != None:
             client.settimeout(int(timeout))
-        client.connect((target, port))
+        client.connect((ip, port))
+        host = target
+        if ip == target:
+            host = '(UNKNOWN)'
             
-        if ver == True:
+        if ver == True or mver == True:
             try:
-                print('(UNKNOWN) [%s] %s (%s): Open' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Open' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Open' % (target, port))
+                print('%s [%s] %s (?): Open' % (host, ip, port))
         if alive == True:
             client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         if zero == True:
@@ -309,28 +310,30 @@ def client_send(target, port, exe):
                 quit()
 
     except socket.error as msg:
-        msg = str(msg).replace('getaddrinfo failed', 'hlfailed').replace('[', '').replace(']', ':')
-        if '10061' in msg:
-            if mver == True or scan == False:
-                try:
-                    print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
-                except:
-                    print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
-        elif '104' in msg:
-            if mver == True or scan == False:
-                try:
-                    print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
-                except:
-                    print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
-        else:
-            if 'hlfailed' in msg:
-                print('[%s]: Host lookup failed: Unknown host' % target)
-                quit()
-            try:
-                print('(UNKNOWN) [%s] %s (%s): %s' % (target, port, allp[str(port)], msg))
-            except:
-                print('(UNKNOWN) [%s] %s (?): %s' % (target, port, msg))
+        msg = str(msg)
+        if 'getaddrinfo failed' in msg:
+            print('[%s]: Host lookup failed: unknown host' % target)
             quit()
+        elif '10061' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
+        elif '104' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
+        elif '104' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection timeout' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection timeout' % (target, port))         
+        elif mver == True:
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection failed' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection failed' % (target, port))
 
 def server_loop(port, exe):
     target = "0.0.0.0"
@@ -381,13 +384,16 @@ def main():
     global name
     global alive
     global mver
+    global order
     global scan
+    global dns
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVb", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCN:kVbOn", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
-                                                        "clrf", "name", "keepalive", "Mverbose", "banner"])
+                                                        "clrf", "name", "keepalive", "Mverbose", "banner"
+                                                        "ip"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -422,12 +428,16 @@ def main():
                 execute = '/bin/sh'
         elif o in ("-C", "C"):
             clrf = True
-        elif o in ("-n", "n"):
+        elif o in ("-N", "N"):
             name = a
+        elif o in ("-n", "n"):
+            dns = False
         elif o in ("-k", "k"):
             alive = True
         elif o in ("-V", "V"):
             mver = True
+        elif o in ("-O", "O"):
+            order = True
         elif o in ("-b", "b"):
             print(banner)
             quit()
@@ -445,15 +455,15 @@ def main():
                 pass
 
     if port == None:
-        print("Invalid usage: No port[s] (use `-r` to randomize ports)")
+        print("No port[s] (use `-r` to randomize ports)")
         quit()
 
     if (not port.isdigit() or not 65536 > int(port) > 0) and not '-' in port:
-        print('Invalid usage: Invalid port %s' % port)
+        print('Invalid port %s' % port)
         quit()
 
     if timeout != None and not timeout.isdigit():
-        print('Invalid usage: Invalid timeout %s' % port)
+        print('Invalid timeout %s seconds' % port)
         quit()
 
     if not listen and len(target) and '-' in port:
@@ -472,8 +482,7 @@ def main():
         server_loop(int(port), execute)
 
     else:
-        print('Invalid usage: No destination')
+        print('No destination')
 
 
 main()
-
