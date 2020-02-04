@@ -39,8 +39,7 @@ allp = {'25' : 'smtp',
         '53' : 'dns',
         '67' : 'dhcp',
         '68' : 'dhcp',
-        '110': 'pop3'
-        }
+        '110': 'pop3'}
 
 if sys.platform == 'win32':
     e = b'\n'
@@ -323,6 +322,8 @@ def client_send(target, port, exe):
             lookup = socket.gethostbyaddr(target)
             hostname = lookup[0]
             ip = lookup[2][0]
+            if target == 'localhost':
+                ip = '127.0.0.1'
             if mver == True:
                 if target == hostname:
                     print('DNS (forward/reverse) match: %s == %s' % (target, hostname))
@@ -337,10 +338,10 @@ def client_send(target, port, exe):
                 quit()
         if timeout != None:
             client.settimeout(int(timeout))
-        client.connect((ip, port))
         host = target
         if ip == target:
             host = '(UNKNOWN)'
+        client.connect((ip, port))
             
         if ver == True or mver == True:
             try:
@@ -367,24 +368,24 @@ def client_send(target, port, exe):
             quit()
         elif '10061' in msg and (mver == True or scan == False):
             try:
-                print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Connection refused' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
+                print('%s [%s] %s (?): Connection refused' % (host, ip, port))
         elif '104' in msg and (mver == True or scan == False):
             try:
-                print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Connection reset' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
+                print('%s [%s] %s (?): Connection reset' % (host, ip, port))
         elif '104' in msg and (mver == True or scan == False):
             try:
-                print('(UNKNOWN) [%s] %s (%s): Connection timeout' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Connection timeout' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Connection timeout' % (target, port))         
+                print('%s [%s] %s (?): Connection timeout' % (host, ip, port))         
         elif mver == True:
             try:
-                print('(UNKNOWN) [%s] %s (%s): Connection failed' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Connection failed' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Connection failed' % (target, port))
+                print('%s [%s] %s (?): Connection failed' % (host, ip, port))
 
 def server_loop(port, exe):
     target = "0.0.0.0"
@@ -548,3 +549,4 @@ def main():
 
 
 main()
+
