@@ -24,6 +24,7 @@ alive = False
 mver = False
 order = False
 scan = False
+dns = True
 allp = {'25' : 'smtp',
         '80' : 'http',
         '443': 'https',
@@ -70,17 +71,18 @@ Options:""")
     print("       -e file                Execute program upon connection")
     print("       -c                     Use `-e` as '/bin/bash' in unix and 'cmd' in windows")
     print("       -t addr                Host for the ibound connection")
-    print("       -z                     Zero I/O mode (used in port scaning)")
-    print("       -v                     Verbose mode")
-    print("       -V                     More verbose")
+    print("       -n                     No DNS lookup, only IP addresses")
     print("       -u                     UDP protocol mode")
     print("       -r                     Random local or remote ports")
-    print("       -w secs                Set timeout for the connection")
-    print("       -P pass                Require password to connects")
-    print("       -O                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
-    print("       -C                     CLRF as line ending (use it when chating)")
-    print("       -n name                Send your name as the first line (for recognize when chating)")
     print("       -k                     Keep socket alive")
+    print("       -P pass                Require password to connects")
+    print("       -v                     Verbose mode")
+    print("       -V                     More verbose")
+    print("       -w secs                Set timeout for the socket")
+    print("       -C                     CLRF as line ending (used in server-chating)")
+    print("       -z                     Zero I/O mode (used in port scaning)")
+    print("       -O                     Ordinarily I/O mode (used in backdoor shell to reproduce slow I/O error)")
+    print("       -N name                Send your name as the first line (for recognize when chating)")
     print("       -b                     Display the Netpython banner")
     print("Port numbers can be individual or ranges: min-max; netpython commands are also support HTTP requests")
 
@@ -301,15 +303,34 @@ At line:1 char:1
 def client_send(target, port, exe):
     try:
         client = socket.socket(socket.AF_INET, typ)
+        if dns:
+            lookup = socket.gethostbyaddr(target)
+            hostname = lookup[0]
+            ip = lookup[2][0]
+            if mver == True:
+                if target == hostname:
+                    print('DNS (fwd/rev) match: %s == %s' % (target, hostname))
+                else:
+                    print('DNS (fwd/rev) mismatch: %s != %s' % (target, hostname))
+        else:
+            try:
+                socket.inet_aton(target)
+                ip = target
+            except:
+                print('%s not an IP adrress' % target)
+                quit()
         if timeout != None:
             client.settimeout(int(timeout))
-        client.connect((target, port))
+        client.connect((ip, port))
+        host = target
+        if ip == target:
+            host = '(UNKNOWN)'
             
-        if ver == True:
+        if ver == True or mver == True:
             try:
-                print('(UNKNOWN) [%s] %s (%s): Open' % (target, port, allp[str(port)]))
+                print('%s [%s] %s (%s): Open' % (host, ip, port, allp[str(port)]))
             except:
-                print('(UNKNOWN) [%s] %s (?): Open' % (target, port))
+                print('%s [%s] %s (?): Open' % (host, ip, port))
         if alive == True:
             client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         if zero == True:
@@ -324,28 +345,29 @@ def client_send(target, port, exe):
                 quit()
 
     except socket.error as msg:
-        msg = str(msg).replace('getaddrinfo failed', 'hlfailed').replace('[', '').replace(']', ':')
-        if '10061' in msg:
-            if mver == True or scan == False:
-                try:
-                    print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
-                except:
-                    print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
-        elif '104' in msg:
-            if mver == True or scan == False:
-                try:
-                    print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
-                except:
-                    print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
-        else:
-            if 'hlfailed' in msg:
-                print('[%s]: Host lookup failed: unknown host' % target)
-                quit()
-            try:
-                print('(UNKNOWN) [%s] %s (%s): %s' % (target, port, allp[str(port)], msg))
-            except:
-                print('(UNKNOWN) [%s] %s (?): %s' % (target, port, msg))
+        if 'getaddrinfo failed' in msg:
+            print('[%s]: Host lookup failed: unknown host' % target)
             quit()
+        elif '10061' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection refused' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection refused' % (target, port))
+        elif '104' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection reset' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection reset' % (target, port))
+        elif '104' in msg and (mver == True or scan == False):
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection timeout' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection timeout' % (target, port))         
+        elif mver == True:
+            try:
+                print('(UNKNOWN) [%s] %s (%s): Connection failed' % (target, port, allp[str(port)]))
+            except:
+                print('(UNKNOWN) [%s] %s (?): Connection failed' % (target, port))
 
 def server_loop(port, exe):
     target = "0.0.0.0"
@@ -398,9 +420,10 @@ def main():
     global mver
     global order
     global scan
+    global dns
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCn:kVbO", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:zvurw:d:cCN:kVbOn", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
@@ -439,8 +462,10 @@ def main():
                 execute = '/bin/sh'
         elif o in ("-C", "C"):
             clrf = True
-        elif o in ("-n", "n"):
+        elif o in ("-N", "N"):
             name = a
+        elif o in ("-n", "n"):
+            dns = False
         elif o in ("-k", "k"):
             alive = True
         elif o in ("-V", "V"):
