@@ -32,6 +32,7 @@ using python2, use "np2.py". I am working on "np2" for I/O multi-threading.
 
 Some the netpython features:
 
+ - Full forward and reverse DNS lookup
  - Port scanning
  - Transferring files
  - Port listening
