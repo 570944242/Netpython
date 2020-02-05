@@ -284,9 +284,7 @@ At line:1 char:1
                             break
                     print(data, end='')
                 buffer = input('') + '\n'
-                if not len(buffer):
-                    buffer = '\n'
-                elif int(port) in (80, 443):
+                if int(port) in (80, 443):
                     i = 0
                     while 1:
                         data = input()
