@@ -279,8 +279,9 @@ At line:1 char:1
                 if order == True:
                     data = ''
                     while 1:
-                        packet = client_socket.recv(1024).decode()
-                        if len(packet.e) < 1024:
+                        packet = client_socket.recv(1024)
+                        data += packet.decode()
+                        if len(packet) < 1024:
                             break
                     print(data, end='')
                 buffer = input('') + '\n'
