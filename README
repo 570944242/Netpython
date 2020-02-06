@@ -57,6 +57,7 @@ Some basic features:
   * Port scanning
   * Transferring files
   * Port listening
+  * Traffic dumping
   * Used as a backdoor
 
 
