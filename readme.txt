@@ -37,7 +37,7 @@ Some the netpython features:
  - Transferring files
  - Port listening
  - Connecting to the server
- - Create a shell upon connections
+ - Executing programs upon connections
  - Server chatting
  - Network debugging
 Netpython can also used as a backdoor.
