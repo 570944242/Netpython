@@ -26,6 +26,7 @@ mver = False
 order = False
 scan = False
 dns = True
+file = None
 delay = 0
 allp = {'25' : 'smtp',
         '80' : 'http',
@@ -76,6 +77,7 @@ Options:""")
     print("       -n                     No DNS lookup, only IP addresses")
     print("       -u                     UDP protocol mode")
     print("       -r                     Random local or remote ports")
+    print("       -o file                Dump of traffic (can't used with `-e` or `-c`)")
     print("       -d secs                Delay interval for lines sent")
     print("       -k                     Keep socket alive")
     print("       -v                     Verbose mode")
@@ -92,6 +94,16 @@ Options:""")
     sys.exit(0)
 
 
+def dump():
+    global dump
+    if file != None:
+        try:
+            dump = open(file, 'w')
+            dump.write(time.asctime(time.localtime(time.time())) + '\n\n')
+        except:
+            print("Can't dump to file %s" % file)
+            quit()
+
 
 def o(s):
     while 1:
@@ -100,9 +112,15 @@ def o(s):
             while 1:
                 packet = s.recv(1024)
                 data += packet.decode()
+                if file != None:
+                    for x in packet.decode().split('\n'):
+                        dump.write('< %s' % x)
                 if len(packet) < 1024:
                     break
             print(data, end='')
+            if not len(data):
+                s.close()
+                break
         except:
             s.close()
             break
@@ -148,7 +166,11 @@ def client_handler(client_socket, execute, pwd):
     if pwd != None:
         while 1:
             client_socket.send(b'Enter the password: ')
+            if file != None:
+                dump.write('> Enter the password:')
             pw = client_socket.recv(1024).decode().replace('\n', '')
+            if file != None:
+                dump.write('< %s' % pw) 
             if pw == pwd:
                 break
             
@@ -270,6 +292,8 @@ At line:1 char:1
     else:
         if name != None:
             client_socket.send(b'[%s]\n' % name)
+            if file != None:
+                dump.write('> [%s]\n' % name)
         if order == False:
             _thread = threading.Thread(target=o, args=[client_socket])
             _thread.start()
@@ -283,20 +307,34 @@ At line:1 char:1
                         data += packet.decode()
                         if len(packet) < 1024:
                             break
+                        if file != None:
+                            for x in packet.decode().split('\n'):
+                                dump.write('< %s' % x)
                     print(data, end='')
+                    if not len(data):
+                        client_socket,close()
+                        break
+                    if file != None:
+                        dump.write('< %s' % data)
                 buffer = input('') + '\n'
+                if file != None:
+                    dump.write('> %s' % buffer)
                 if int(port) in (80, 443):
                     i = 0
                     while 1:
                         data = input()
-                        buffer += '\n' + data
+                        buffer += data + '\n'
+                        if file != None:
+                            dump.write('> %s\n' % data)
                         if data == '':
                             i += 1
                         if i == 1:
                             break
                     while 1:
                         data = input()
-                        buffer += '\n' + data
+                        buffer +=  data + '\n'
+                        if file != None:
+                            dump.write('> %s\n' % data)
                         if data == '':
                             i += 1
                         if i == 2:
@@ -308,17 +346,21 @@ At line:1 char:1
                     time.sleep(int(delay))
                 client_socket.send(buffer.encode())
 
+            except KeyboardInterrupt:
+                print('^C')
+                client_socket.close()
+                break
+
             except:
                 client_socket.close()
                 break
-    quit()
 
 
-def client_send(target, port, exe):
-    try:
-        client = socket.socket(socket.AF_INET, typ)
-        if dns:
-            lookup = socket.gethostbyaddr(target)
+def client_connect(target, port, exe):
+    if dns:
+        try:
+            h = socket.gethostbyname(target)
+            lookup = socket.gethostbyaddr(h)
             hostname = lookup[0]
             ip = lookup[2][0]
             if target == 'localhost':
@@ -328,13 +370,18 @@ def client_send(target, port, exe):
                     print('DNS (forward/reverse) match: %s == %s' % (target, hostname))
                 else:
                     print('DNS (forward/reverse) mismatch: %s != %s' % (target, hostname))
-        else:
-            try:
-                socket.inet_aton(target)
-                ip = target
-            except:
-                print('%s is not an IP adrress' % target)
-                quit()
+        except:
+            print('[%s]: Host lookup failed: unknown host' % target)
+            quit()
+    else:
+        try:
+            socket.inet_aton(target)
+            ip = target
+        except:
+            print('%s is not an IP adrress' % target)
+            quit()
+    try:
+        client = socket.socket(socket.AF_INET, typ)
         if timeout != None:
             client.settimeout(int(timeout))
         host = target
@@ -354,11 +401,9 @@ def client_send(target, port, exe):
 
         else:
             try:
-                client_thread = threading.Thread(target=client_handler, args=(client, exe, pwd))
-                client_thread.start()
+                client_handler(client, exe, pwd)
             except KeyboardInterrupt:
                 print('^C')
-                quit()
 
     except socket.error as msg:
         msg = str(msg)
@@ -386,7 +431,8 @@ def client_send(target, port, exe):
             except:
                 print('%s [%s] %s (?): Connection failed' % (host, ip, port))
 
-def server_loop(port, exe):
+
+def server_listen(port, exe):
     target = "0.0.0.0"
     server = socket.socket(socket.AF_INET, typ)
     try:
@@ -410,16 +456,11 @@ def server_loop(port, exe):
         if ver == True or mver == True:
             print('(UNKNOWN) [%s] %s : Connection succeeded' % (addr[0], addr[1]))
 
-        try:
-            client_thread = threading.Thread(target=client_handler, args=(client_socket, exe, pwd))
-            client_thread.start()
+        client_handler(client_socket, exe, pwd)
 
-        except KeyboardInterrupt:
-            print('^C\n')
-            quit()
 
-    except:
-        pass
+    except KeyboardInterrupt:
+        print('^C')
 
 
 def main():
@@ -440,13 +481,14 @@ def main():
     global scan
     global dns
     global delay
+    global file
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hlLe:t:p:zvurw:d:cCN:kVbOnd:", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hlLe:t:p:zvurw:d:cCN:kVbOnd:o:", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
-                                                        "order", "ip", "delay"])
+                                                        "order", "ip", "delay", "file"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -474,6 +516,8 @@ def main():
             rand = True
         elif o in ("-w", "w"):
             timeout = a
+        elif o in ("-o", "o"):
+            file = a
         elif o in ("-P", "P"):
             pwd = a
         elif o in ("-c", "c"):
@@ -501,6 +545,8 @@ def main():
         else:
             pass
 
+    dump()
+    
     if rand:
         while 1:
             port = randrange(1, 65535)
@@ -530,18 +576,18 @@ def main():
         fport = int(port.split('-')[0])
         lport = int(port.split('-')[1])
         for p in range(fport, lport+1):
-            _thread = threading.Thread(target=client_send, args=(target, p, execute))
+            _thread = threading.Thread(target=client_connect, args=(target, p, execute))
             _thread.start()
 
     elif not listen and len(target) and port.isdigit() and 65536 > int(port) > 0:
-        client_send(target, int(port), execute)
+        client_connect(target, int(port), execute)
 
     elif listen == True:
-        server_loop(int(port), execute)
+        server_listen(int(port), execute)
 
     elif listen == [True, True]:
         while 1:
-            server_loop(int(port), execute)
+            server_listen(int(port), execute)
 
     else:
         print('No destination')
