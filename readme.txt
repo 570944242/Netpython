@@ -40,6 +40,7 @@ Some the netpython features:
  - Executing programs upon connections
  - Server chatting
  - Network debugging
+ - Traffic dumping
 Netpython can also used as a backdoor.
 
 
