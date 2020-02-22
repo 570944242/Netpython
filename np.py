@@ -121,6 +121,10 @@ def o(s):
             if not len(data):
                 s.close()
                 break
+        except KeyboardInterrupt:
+            print('^C')
+            s.close()
+            break
         except:
             s.close()
             break
@@ -130,7 +134,7 @@ def exec_command(command, exe):
     command = command.rstrip()
 
     try:
-        if exe == 'cmd' or 'cmd.exe' in exe or exe == '/bin/bash' or exe == '/bin/sh':
+        if 'cmd.exe' in exe or exe in ['/bin/bash', '/bin/sh', 'cmd']:
             if command == 'help':
                 if sys.platform == 'win32':
                     f = 'help.wd'
@@ -154,7 +158,7 @@ At line:1 char:1
 """ % (command.encode(), command.encode(), command.encode(), command.encode())
         elif 'cmd' in exe:
             out = b"'%s' is not recognized as an internal or external command,\noperable program or batch file.\n\n" % command.encode()
-        elif exe == '/bin/bash' or exe == '/bin/sh':
+        elif exe in ['/bin/bash', '/bin/sh']:
             out = b"-bash: %s: command not found\n" % command.encode()
         else:
             out = b''
@@ -191,8 +195,6 @@ def client_handler(client_socket, execute, pwd):
             else:
                 end = '$'
             path = os.getcwd()
-            if '/home/%s' % usr in path and usr != 'root':
-                path = path.replace('/home/%s' % usr, '~')
             client_socket.send(('\n%s@%s:%s%s ' % (usr, socket.gethostname(), path, end)).encode())
         else:
             client_socket.send(b'\n')
@@ -205,8 +207,13 @@ def client_handler(client_socket, execute, pwd):
                 if not len(_str):
                     out = b'\n'
 
-                if 'cmd' in execute or 'powershell' in execute or execute == '/bin/bash' or execute == '/bin/sh':
-                    if _str.replace(' ', '') == 'exit':  
+                if 'cmd' in execute or 'powershell' in execute or execute in ['/bin/bash', '/bin/sh']:
+                    if _str.replace(' ', '') == 'exit':
+                        if execute in ['/bin/bash', '/bin/sh']:
+                            if usr == 'root':
+                                client_socket.send(b'exit\n')
+                            else:
+                                client_socket.send(b'logout\n')
                         client_socket.close()
                         break
 
@@ -276,8 +283,6 @@ At line:1 char:1
                         else:
                             end = '$'
                         path = os.getcwd()
-                        if '/home/%s' % usr in path and usr != 'root':
-                            path = path.replace('/home/%s' % usr, '~')
                         client_socket.sendall(out + ('%s@%s:%s%s ' % (usr, socket.gethostname(), path, end)).encode())
 
                 else:
@@ -291,7 +296,7 @@ At line:1 char:1
 
     else:
         if name != None:
-            client_socket.send(b'[%s]\n' % name)
+            client_socket.send(b'[%s]\n' % name.encode())
             if file != None:
                 dump.write('> [%s]\n' % name)
         if order == False:
@@ -461,7 +466,7 @@ def server_listen(port, exe):
 
     except KeyboardInterrupt:
         print('^C')
-
+        
 
 def main():
     global listen
@@ -484,7 +489,7 @@ def main():
     global file
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hlLe:t:p:zvurw:d:cCN:kVbOnd:o:", ["help", "listen", "execute",
+        opts, args = getopt.getopt(sys.argv[1:], "hlLe:t:p:zvurw:d:cCN:kVbOnd:o:P:", ["help", "listen", "execute",
                                                         "target", "port", "zero", "verbose", "udp",
                                                         "random", "timeout", "passwd", "terminal",
                                                         "clrf", "name", "keepalive", "Mverbose", "banner"
