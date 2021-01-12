@@ -35,7 +35,7 @@ readme.txt to know details.
 
   Scan:    python3 np.py -t [ADDRESS] -p [MIN_PORT-MAX_PORT] -z [-OPTIONS]**
 
-====
+==== 
 ### Example usage:
 
 
@@ -52,7 +52,7 @@ readme.txt to know details.
 - python3 np.py -l -p 8080 -e myprogram.type
 
 
-====
+==== 
 ### Some basic features:
 
   * Full forward and reverse DNS lookup
@@ -65,7 +65,7 @@ readme.txt to know details.
 
 Created by Shelld3v (hacking at HackerOne and Bugcrowd)
 
-====
+==== 
 #### server:
 ```py 
 python np.py -t localhost -p 9966 
