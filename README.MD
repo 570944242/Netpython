@@ -1,9 +1,11 @@
+```
  |\   |                         |
  | \  |  ___  _|_  ___      _|_ |__   __  . __
  |  \ | |___   |  |__/ \  /  |  |  \ |  | |/  |
  |   \| |___   |  |     \/   |  |  | |__| |   |  
                   |     / 
                        /
+```
 --------------------------------------------------
 Netpython - A python computer networking utility tool for reading from and writing to network connections (TCP/UDP).
 
@@ -25,7 +27,7 @@ Netpython is a netcat alternative solution for minimize cyber
 attacks and avoid Anti-virus trigger false positives. Read the
 readme.txt to know details.
 
-USAGE:
+### USAGE:
 
   Listen:  python3 np.py -lvp [PORT] [-OPTIONS]**
 
@@ -34,7 +36,7 @@ USAGE:
   Scan:    python3 np.py -t [ADDRESS] -p [MIN_PORT-MAX_PORT] -z [-OPTIONS]**
 
 ====
-Example usage:
+### Example usage:
 
 
 - python3 np.py -lvp 4444 -e cmd
@@ -51,7 +53,7 @@ Example usage:
 
 
 ====
-Some basic features:
+### Some basic features:
 
   * Full forward and reverse DNS lookup
   * Port scanning
