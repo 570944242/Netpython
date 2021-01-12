@@ -62,4 +62,15 @@ Some basic features:
 
 
 Created by Shelld3v (hacking at HackerOne and Bugcrowd)
+
+====
+#### server:
+```py 
+python np.py -t localhost -p 9966 
+```
+
+#### client:
+```py
+python np.py -t localhost -p 9966
+```
  
