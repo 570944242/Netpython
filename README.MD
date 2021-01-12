@@ -65,15 +65,14 @@ readme.txt to know details.
 
 
 Created by Shelld3v (hacking at HackerOne and Bugcrowd)
-
 --------------------------------------------------
-#### server:
-```py 
-python np.py -t localhost -p 9966 
+#### server(监听):
+```python 
+ python np.py -lvp 9966
 ```
 
-#### client:
-```py
+#### client（发送）:
+```python
 python np.py -t localhost -p 9966
 ```
- 
+
